@@ -4,19 +4,19 @@ use crate::lexer::{tokenise, Error};
 use crate::token::Token;
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    tokenise(BufReader::with_capacity(6, str.as_bytes())).unwrap()
+    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap()
 }
 
 fn tok_err(str: &str) -> Error {
-    tokenise(BufReader::with_capacity(6, str.as_bytes())).unwrap_err()
+    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap_err()
 }
 
 #[test]
 fn text_unescaped() {
-    let str = r#""hello"
-        "world""#;
+    let str = r#""hello world"
+        "hi""#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Text("hello".into()), Newline, Text("world".into()), Newline], tokens);
+    assert_eq!(vec![Text("hello world".into()), Newline, Text("hi".into()), Newline], tokens);
 }
 
 #[test]

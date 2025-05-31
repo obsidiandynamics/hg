@@ -40,7 +40,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
             "\n".chars()
         };
 
-        println!("line: '{line}'");
+        println!("line {}: '{line}'", location.line);
         for char in chars {
             location.column += 1;
             match char {
@@ -125,11 +125,11 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
             }
         }
 
-        location.column = 0;
-        line.clear();
-
         if bytes == 0 {
             break;
+        } else {
+            location.column = 0;
+            line.clear();
         }
     }
     Ok(tokens)
