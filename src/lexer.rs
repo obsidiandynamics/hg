@@ -7,13 +7,13 @@ pub enum Error {
     #[error("i/o error {0}")]
     Io(#[from] io::Error),
 
-    #[error("unexpected char '{0}' at {1}")]
+    #[error("unexpected character '{0}' at {1}")]
     UnexpectedChar(char, Location),
 
     #[error("unterminated text literal at {0}")]
     UnterminatedText(Location),
 
-    #[error("unknown escape sequence '\\{0}' at {1}")]
+    #[error("unknown escape sequence '{0}' at {1}")]
     UnknownEscapeSequence(char, Location)
 }
 
@@ -95,7 +95,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                 _ => {
                     match mode {
                         Mode::Whitespace => {
-                            //TODO error
+                            //TODO start ident
                         }
                         Mode::TextBody => {
                             token.push(char)
@@ -107,6 +107,12 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                                 }
                                 'n' => {
                                     token.push('\n');
+                                }
+                                'r' => {
+                                    token.push('\r');
+                                }
+                                't' => {
+                                    token.push('\t');
                                 }
                                 _ => {
                                     return Err(Error::UnknownEscapeSequence(char, location))
@@ -130,32 +136,4 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::BufReader;
-    use Token::{Newline, Text};
-    use crate::lexer::tokenise;
-    use crate::token::Token;
-
-    #[test]
-    fn text_unescaped() {
-        let str = r#""hello"
-        "world""#;
-        let tokens = tokenise(BufReader::with_capacity(6, str.as_bytes())).unwrap();
-        assert_eq!(vec![Text("hello".into()), Newline, Text("world".into()), Newline], tokens);
-    }
-    
-    #[test]
-    fn text_escaped() {
-        let str = r#""hel\nlo""#;
-        let tokens = tokenise(BufReader::with_capacity(6, str.as_bytes())).unwrap();
-        assert_eq!(vec![Text("hel\nlo".into()), Newline], tokens);
-    }
-
-    #[test]
-    fn text_unterminated_err() {
-        let str = r#""hello
-        "#;
-        let result = tokenise(BufReader::with_capacity(6, str.as_bytes()));
-        assert_eq!("unterminated text literal at line 1, column 7", result.unwrap_err().to_string());
-    }
-}
+mod tests;
