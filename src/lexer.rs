@@ -43,84 +43,65 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
         println!("line {}: '{line}'", location.line);
         for char in chars {
             location.column += 1;
-            match char {
-                '\\' => {
-                    match mode {
-                        Mode::Whitespace => {
+            match mode {
+                Mode::Whitespace => {
+                    match char {
+                        '\\' => {
                             return Err(Error::UnexpectedChar(char, location))
                         }
-                        Mode::TextBody => {
-                            mode = Mode::TextEscape
-                        }
-                        Mode::TextEscape => {
-                            token.push('\\');
+                        '"' => {
                             mode = Mode::TextBody
+                        }
+                        '\t' | '\r' | ' ' => {}
+                        '\n' => {
+                            tokens.push(Token::Newline)
+                        }
+                        _ => {
+                            //TODO start ident
                         }
                     }
                 }
-                '"' => {
-                    match mode {
-                        Mode::Whitespace => mode = Mode::TextBody,
-                        Mode::TextBody => {
+                Mode::TextBody => {
+                    match char {
+                        '\\' => {
+                            mode = Mode::TextEscape
+                        }
+                        '"' => {
                             tokens.push(Token::Text(token.clone()));
                             token.clear();
                             mode = Mode::Whitespace
-                        },
-                        Mode::TextEscape => { 
-                            token.push('"');
-                            mode = Mode::TextBody
                         }
-                    }
-                },
-                '\t' | '\r' | ' ' => {
-                    match mode {
-                        Mode::Whitespace => {}
-                        Mode::TextBody => {
+                        '\t' | '\r' | ' ' => {
                             token.push(char)
-                        },
-                        Mode::TextEscape => todo!()
-                    }
-                }
-                '\n' => {
-                    match mode {
-                        Mode::Whitespace => {
-                            tokens.push(Token::Newline)
                         }
-                        Mode::TextBody => {
+                        '\n' => {
                             return Err(Error::UnterminatedText(location))
-                        },
-                        Mode::TextEscape => todo!()
+                        }
+                        _ => {
+                            token.push(char)
+                        }
                     }
                 }
-                _ => {
-                    match mode {
-                        Mode::Whitespace => {
-                            //TODO start ident
+                Mode::TextEscape => {
+                    match char {
+                        '\\' | '"' => {
+                            token.push(char);
                         }
-                        Mode::TextBody => {
-                            token.push(char)
-                        },
-                        Mode::TextEscape => { 
-                            match char {
-                                '"' => { 
-                                    token.push('"');
-                                }
-                                'n' => {
-                                    token.push('\n');
-                                }
-                                'r' => {
-                                    token.push('\r');
-                                }
-                                't' => {
-                                    token.push('\t');
-                                }
-                                _ => {
-                                    return Err(Error::UnknownEscapeSequence(char, location))
-                                }
-                            }
-                            mode = Mode::TextBody
+                        'n' => {
+                            token.push('\n');
+                        }
+                        'r' => {
+                            token.push('\r');
+                        }
+                        't' => {
+                            token.push('\t');
+                        }
+                        _ => {
+                            //TODO handle hex (e.g., \x7F) and unicode (e.g., \u{7FFF})
+                            return Err(Error::UnknownEscapeSequence(char, location))
                         }
                     }
+                    mode = Mode::TextBody
                 }
             }
         }
