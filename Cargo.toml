@@ -1,0 +1,9 @@
+[package]
+name = "hg"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Parser for the Mercury metalanguage"
+repository = "https://github.com/obsidiandynamics/hg"
+
+[dependencies]
