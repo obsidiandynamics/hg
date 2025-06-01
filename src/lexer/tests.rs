@@ -1,8 +1,8 @@
 use std::io::BufReader;
-use Token::{Newline, Text};
+use Token::{Integer, Newline, Text};
 use crate::lexer::{tokenise, Error};
 use crate::token::Token;
-use crate::token::Token::{LeftBrace, LeftParen, RightBrace, RightParen};
+use crate::token::Token::{Colon, Dash, Decimal, LeftBrace, LeftParen, RightBrace, RightParen};
 
 fn tok_ok(str: &str) -> Vec<Token> {
     tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap()
@@ -99,4 +99,88 @@ fn left_and_right_brace() {
     let str = r#"{{ }}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![LeftBrace, LeftBrace, RightBrace, RightBrace, Newline], tokens);
+}
+
+#[test]
+fn dash() {
+    let str = r#" - -- -"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Dash, Dash, Dash, Dash, Newline], tokens);
+}
+
+#[test]
+fn colon() {
+    let str = r#" : :: :"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Colon, Colon, Colon, Colon, Newline], tokens);
+}
+
+#[test]
+fn integer_newline_terminated() {
+    let str = r#"1234567890"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Integer(1234567890), Newline], tokens);
+}
+
+#[test]
+fn integer_zero_newline_terminated() {
+    let str = r#"0"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Integer(0), Newline], tokens);
+}
+
+#[test]
+fn integer_colon_terminated() {
+    let str = r#"1_234_567_890:"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Integer(1234567890), Colon, Newline], tokens);
+}
+
+#[test]
+fn integer_too_large_err() {
+    let str = r#"1234567890123456789012345678901234567890:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable integer 1234567890123456789012345678901234567890 (number too large to fit in target type) at line 1, column 41", err.to_string());
+}
+
+#[test]
+fn integer_invalid_err() {
+    let str = r#"1k1:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable integer 1k1 (invalid digit found in string) at line 1, column 4", err.to_string());
+}
+
+#[test]
+fn decimal_newline_terminated() {
+    let str = r#"1234567890.0123456789"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Newline], tokens);
+}
+
+#[test]
+fn decimal_small() {
+    let str = r#"1234567890.0001"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Decimal(1234567890, 1, 4), Newline], tokens);
+}
+
+#[test]
+fn decimal_colon_terminated() {
+    let str = r#"1_234_567_890.0_123_456_789:"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Colon, Newline], tokens);
+}
+
+#[test]
+fn decimal_whole_too_large_err() {
+    let str = r#"1234567890123456789012345678901234567890.:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable integer 1234567890123456789012345678901234567890 (number too large to fit in target type) at line 1, column 41", err.to_string());
+}
+
+#[test]
+fn decimal_fractional_too_large_err() {
+    let str = r#"1234567890.1234567890123456789012345678901234567890:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable decimal 1234567890.1234567890123456789012345678901234567890 (number too large to fit in target type) at line 1, column 52", err.to_string());
 }
