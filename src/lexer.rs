@@ -56,6 +56,18 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                         '\n' => {
                             tokens.push(Token::Newline)
                         }
+                        '(' => {
+                            tokens.push(Token::LeftParen)
+                        }
+                        ')' => {
+                            tokens.push(Token::RightParen)
+                        }
+                        '{' => {
+                            tokens.push(Token::LeftBrace)
+                        }
+                        '}' => {
+                            tokens.push(Token::RightBrace)
+                        }
                         _ => {
                             //TODO start ident
                         }
@@ -70,9 +82,6 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                             tokens.push(Token::Text(token.clone()));
                             token.clear();
                             mode = Mode::Whitespace
-                        }
-                        '\t' | '\r' | ' ' => {
-                            token.push(char)
                         }
                         '\n' => {
                             return Err(Error::UnterminatedText(location))
@@ -96,8 +105,15 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                         't' => {
                             token.push('\t');
                         }
+                        'x' => {
+                            //TODO handle hex (e.g., \x7F)
+                            return Err(Error::UnknownEscapeSequence(char, location))
+                        }
+                        'u' => {
+                            //TODO handle unicode (e.g., \u{7FFF})
+                            return Err(Error::UnknownEscapeSequence(char, location))
+                        }
                         _ => {
-                            //TODO handle hex (e.g., \x7F) and unicode (e.g., \u{7FFF})
                             return Err(Error::UnknownEscapeSequence(char, location))
                         }
                     }

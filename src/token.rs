@@ -3,6 +3,10 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {
     Text(String),
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
     Newline,
 }
 
