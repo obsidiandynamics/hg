@@ -2,7 +2,7 @@ use std::io::BufReader;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{tokenise, Error};
 use crate::token::Token;
-use crate::token::Token::{Colon, Dash, Decimal, LeftBrace, LeftParen, RightBrace, RightParen};
+use crate::token::Token::{Boolean, Character, Colon, Dash, Decimal, Ident, LeftBrace, LeftParen, RightBrace, RightParen};
 
 fn tok_ok(str: &str) -> Vec<Token> {
     tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap()
@@ -60,7 +60,7 @@ fn text_unterminated_err() {
     let str = r#""hello
         "#;
     let err = tok_err(str);
-    assert_eq!("unterminated text literal at line 1, column 7", err.to_string());
+    assert_eq!("unterminated literal at line 1, column 7", err.to_string());
 }
 
 #[test]
@@ -69,6 +69,37 @@ fn text_unknown_escape_err() {
         "#;
     let err = tok_err(str);
     assert_eq!("unknown escape sequence 's' at line 1, column 8", err.to_string());
+}
+
+#[test]
+fn character_unescaped() {
+    let str = r#"'a'
+        'b'"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Character('a'), Newline, Character('b'), Newline], tokens);
+}
+
+#[test]
+fn character_escaped_newline() {
+    let str = r#"'\n'"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Character('\n'), Newline], tokens);
+}
+
+#[test]
+fn character_unterminated_err() {
+    let str = r#"'h
+        "#;
+    let err = tok_err(str);
+    assert_eq!("unterminated literal at line 1, column 3", err.to_string());
+}
+
+#[test]
+fn character_unknown_escape_err() {
+    let str = r#"'\s
+        "#;
+    let err = tok_err(str);
+    assert_eq!("unknown escape sequence 's' at line 1, column 3", err.to_string());
 }
 
 #[test]
@@ -183,4 +214,40 @@ fn decimal_fractional_too_large_err() {
     let str = r#"1234567890.1234567890123456789012345678901234567890:"#;
     let err = tok_err(str);
     assert_eq!("unparsable decimal 1234567890.1234567890123456789012345678901234567890 (number too large to fit in target type) at line 1, column 52", err.to_string());
+}
+
+#[test]
+fn decimal_whole_invalid_err() {
+    let str = r#"1k1."#;
+    let err = tok_err(str);
+    assert_eq!("unparsable integer 1k1 (invalid digit found in string) at line 1, column 4", err.to_string());
+}
+
+#[test]
+fn decimal_fractional_invalid_err() {
+    let str = r#"1234567890.1k1:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable decimal 1234567890.1k1 (invalid digit found in string) at line 1, column 15", err.to_string());
+}
+
+#[test]
+fn ident() {
+    let str = r#"first second
+    third"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Ident("first".into()), Ident("second".into()), Newline, Ident("third".into()), Newline], tokens);
+}
+
+#[test]
+fn ident_colon_terminated() {
+    let str = r#"first:second"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Ident("first".into()), Colon, Ident("second".into()), Newline], tokens);
+}
+
+#[test]
+fn boolean() {
+    let str = r#"true false"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Boolean(true), Boolean(false), Newline], tokens);
 }

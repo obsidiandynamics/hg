@@ -10,10 +10,10 @@ pub enum Error {
     Io(#[from] io::Error),
 
     #[error("unexpected character '{0}' at {1}")]
-    UnexpectedChar(char, Location),
+    UnexpectedCharacter(char, Location),
 
-    #[error("unterminated text literal at {0}")]
-    UnterminatedText(Location),
+    #[error("unterminated literal at {0}")]
+    UnterminatedLiteral(Location),
 
     #[error("unknown escape sequence '{0}' at {1}")]
     UnknownEscapeSequence(char, Location),
@@ -23,14 +23,20 @@ pub enum Error {
 
     #[error("unparsable decimal {0}.{1} ({2}) at {3}")]
     UnparsableDecimal(u128, String, ParseIntError, Location),
+
+    #[error("empty character literal at {0}")]
+    EmptyCharacterLiteral(Location),
 }
 
 enum Mode {
     Whitespace,
     TextBody,
     TextEscape,
+    CharacterBody,
+    CharacterEscape,
     Integer,
-    Decimal(u128)
+    Decimal(u128),
+    Ident
 }
 
 pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> {
@@ -58,66 +64,70 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                     Mode::Whitespace => {
                         match char {
                             '\\' => {
-                                return Err(Error::UnexpectedChar(char, location))
+                                return Err(Error::UnexpectedCharacter(char, location))
                             }
                             '"' => {
-                                mode = Mode::TextBody
+                                mode = Mode::TextBody;
+                            }
+                            '\'' => {
+                                mode = Mode::CharacterBody;
                             }
                             '\t' | '\r' | ' ' => {}
                             '\n' => {
-                                tokens.push(Token::Newline)
+                                tokens.push(Token::Newline);
                             }
                             '(' => {
-                                tokens.push(Token::LeftParen)
+                                tokens.push(Token::LeftParen);
                             }
                             ')' => {
-                                tokens.push(Token::RightParen)
+                                tokens.push(Token::RightParen);
                             }
                             '{' => {
-                                tokens.push(Token::LeftBrace)
+                                tokens.push(Token::LeftBrace);
                             }
                             '}' => {
-                                tokens.push(Token::RightBrace)
+                                tokens.push(Token::RightBrace);
                             }
                             '-' => {
-                                tokens.push(Token::Dash)
+                                tokens.push(Token::Dash);
                             }
                             ':' => {
-                                tokens.push(Token::Colon)
+                                tokens.push(Token::Colon);
                             }
                             '0'..='9' => {
                                 mode = Mode::Integer;
-                                token.push(char)
+                                token.push(char);
                             }
                             '.' => {
                                 mode = Mode::Decimal(0);
                             }
                             _ => {
-                                //TODO start ident
+                                mode = Mode::Ident;
+                                token.push(char);
                             }
                         }
                     }
                     Mode::TextBody => {
                         match char {
                             '\\' => {
-                                mode = Mode::TextEscape
+                                mode = Mode::TextEscape;
                             }
                             '"' => {
                                 tokens.push(Token::Text(token.clone()));
                                 token.clear();
-                                mode = Mode::Whitespace
+                                mode = Mode::Whitespace;
                             }
                             '\n' => {
-                                return Err(Error::UnterminatedText(location))
+                                return Err(Error::UnterminatedLiteral(location))
                             }
                             _ => {
-                                token.push(char)
+                                token.push(char);
                             }
                         }
                     }
-                    Mode::TextEscape => {
+                    Mode::CharacterEscape | Mode::TextEscape => {
                         match char {
-                            '\\' | '"' => {
+                            '\\' | '"' | '\'' => {
                                 token.push(char);
                             }
                             'n' => {
@@ -141,13 +151,51 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                                 return Err(Error::UnknownEscapeSequence(char, location))
                             }
                         }
-                        mode = Mode::TextBody
+                        match mode {
+                            Mode::TextEscape => {
+                                mode = Mode::TextBody;
+                            }
+                            Mode::CharacterEscape => {
+                                mode = Mode::CharacterBody;
+                            }
+                            _ => {
+                                // by the encompassing pattern, mode must be one of the two variants above
+                                unreachable!()
+                            }
+                        }
+                    }
+                    Mode::CharacterBody => {
+                        match char {
+                            '\\' => {
+                                mode = Mode::CharacterEscape;
+                            }
+                            '\'' => {
+                                let mut chars = token.chars();
+                                match chars.next() {
+                                    None => {
+                                        return Err(Error::EmptyCharacterLiteral(location))
+                                    }
+                                    Some(first_char) => {
+                                        tokens.push(Token::Character(first_char));
+                                        token.clear();
+                                        mode = Mode::Whitespace;
+                                    }
+                                }
+                            }
+                            '\n' => {
+                                return Err(Error::UnterminatedLiteral(location))
+                            }
+                            _ => {
+                                if token.is_empty() {
+                                    token.push(char);
+                                } else {
+                                    return Err(Error::UnexpectedCharacter(char, location))
+                                }
+                            }
+                        }
                     }
                     Mode::Integer => {
                         match char {
-                            // '0'..='9' => {
-                            //     token.push(char)
-                            // }
                             '_' => {}
                             '.' => {
                                 match u128::from_str(&token) {
@@ -166,7 +214,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                                         tokens.push(Token::Integer(whole));
                                         token.clear();
                                         mode = Mode::Whitespace;
-                                        continue 'matcher;
+                                        continue 'matcher; // don't consume the char
                                     }
                                     Err(err) => {
                                         return Err(Error::UnparsableInteger(token.clone(), err, location))
@@ -175,29 +223,50 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                             }
                             _ => {
                                 token.push(char);
-                                // let err = u128::from_str(&token).unwrap_err();
-                                // return Err(Error::UnparsableInteger(token, err, location))
                             }
                         }
                     }
                     Mode::Decimal(whole) => {
                         match char {
-                            '0'..='9' => {
-                                token.push(char)
-                            }
                             '_' => {}
-                            _ => {
+                            ')' | '}' | ':' | '\n' | '\t' | '\r' | ' ' => {
                                 match u128::from_str(&token) {
                                     Ok(fractional) => {
                                         tokens.push(Token::Decimal(whole, fractional, token.len().try_into().expect("fractional part is too long")));
                                         token.clear();
                                         mode = Mode::Whitespace;
-                                        continue 'matcher;
+                                        continue 'matcher;  // don't consume the char
                                     }
                                     Err(err) => {
                                         return Err(Error::UnparsableDecimal(whole, token.clone(), err, location))
                                     }
                                 }
+                            }
+                            _ => {
+                                token.push(char)
+                            }
+                        }
+                    }
+                    Mode::Ident => {
+                        match char {
+                            ')' | '}' | ':' | '\n' | '\t' | '\r' | ' ' => {
+                                match token.as_str() {
+                                    "true" => {
+                                        tokens.push(Token::Boolean(true));
+                                    }
+                                    "false" => {
+                                        tokens.push(Token::Boolean(false));
+                                    }
+                                    _ => {
+                                        tokens.push(Token::Ident(token.clone()));
+                                    }
+                                }
+                                token.clear();
+                                mode = Mode::Whitespace;
+                                continue 'matcher;  // don't consume the char
+                            }
+                            _ => {
+                                token.push(char);
                             }
                         }
                     }
