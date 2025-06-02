@@ -2,10 +2,10 @@ use std::io::BufReader;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{tokenise, Error};
 use crate::token::Token;
-use crate::token::Token::{Boolean, Character, Colon, Dash, Decimal, Ident, LeftBrace, LeftParen, RightBrace, RightParen};
+use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, LeftBrace, LeftParen, RightBrace, RightParen};
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap()
+    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap().into()
 }
 
 fn tok_err(str: &str) -> Error {
@@ -147,6 +147,13 @@ fn colon() {
 }
 
 #[test]
+fn comma() {
+    let str = r#" , ,, ,"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Comma, Comma, Comma, Comma, Newline], tokens);
+}
+
+#[test]
 fn integer_newline_terminated() {
     let str = r#"1234567890"#;
     let tokens = tok_ok(str);
@@ -165,6 +172,13 @@ fn integer_colon_terminated() {
     let str = r#"1_234_567_890:"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Integer(1234567890), Colon, Newline], tokens);
+}
+
+#[test]
+fn integer_dash_terminated() {
+    let str = r#"123-456"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Integer(123), Dash, Integer(456), Newline], tokens);
 }
 
 #[test]

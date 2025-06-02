@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io;
 use std::io::{BufRead, BufReader, Read};
 use std::num::ParseIntError;
@@ -39,8 +40,8 @@ enum Mode {
     Ident
 }
 
-pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> {
-    let mut tokens = Vec::new();
+pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<VecDeque<Token>, Error> {
+    let mut tokens = VecDeque::new();
     let mut line = String::new();
     let mut token = String::new();
     let mut mode = Mode::Whitespace;
@@ -74,25 +75,28 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                             }
                             '\t' | '\r' | ' ' => {}
                             '\n' => {
-                                tokens.push(Token::Newline);
+                                tokens.push_back(Token::Newline);
                             }
                             '(' => {
-                                tokens.push(Token::LeftParen);
+                                tokens.push_back(Token::LeftParen);
                             }
                             ')' => {
-                                tokens.push(Token::RightParen);
+                                tokens.push_back(Token::RightParen);
                             }
                             '{' => {
-                                tokens.push(Token::LeftBrace);
+                                tokens.push_back(Token::LeftBrace);
                             }
                             '}' => {
-                                tokens.push(Token::RightBrace);
+                                tokens.push_back(Token::RightBrace);
                             }
                             '-' => {
-                                tokens.push(Token::Dash);
+                                tokens.push_back(Token::Dash);
                             }
                             ':' => {
-                                tokens.push(Token::Colon);
+                                tokens.push_back(Token::Colon);
+                            }
+                            ',' => {
+                                tokens.push_back(Token::Comma);
                             }
                             '0'..='9' => {
                                 mode = Mode::Integer;
@@ -113,7 +117,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                                 mode = Mode::TextEscape;
                             }
                             '"' => {
-                                tokens.push(Token::Text(token.clone()));
+                                tokens.push_back(Token::Text(token.clone()));
                                 token.clear();
                                 mode = Mode::Whitespace;
                             }
@@ -176,7 +180,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                                         return Err(Error::EmptyCharacterLiteral(location))
                                     }
                                     Some(first_char) => {
-                                        tokens.push(Token::Character(first_char));
+                                        tokens.push_back(Token::Character(first_char));
                                         token.clear();
                                         mode = Mode::Whitespace;
                                     }
@@ -208,10 +212,10 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                                     }
                                 }
                             }
-                            ')' | '}' | ':' | '\n' | '\t' | '\r' | ' ' => {
+                            ')' | '}' | ':' | '-' | '\n' | '\t' | '\r' | ' ' => {
                                 match u128::from_str(&token) {
                                     Ok(whole) => {
-                                        tokens.push(Token::Integer(whole));
+                                        tokens.push_back(Token::Integer(whole));
                                         token.clear();
                                         mode = Mode::Whitespace;
                                         continue 'matcher; // don't consume the char
@@ -229,10 +233,10 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                     Mode::Decimal(whole) => {
                         match char {
                             '_' => {}
-                            ')' | '}' | ':' | '\n' | '\t' | '\r' | ' ' => {
+                            ')' | '}' | ':' | '-' | '\n' | '\t' | '\r' | ' ' => {
                                 match u128::from_str(&token) {
                                     Ok(fractional) => {
-                                        tokens.push(Token::Decimal(whole, fractional, token.len().try_into().expect("fractional part is too long")));
+                                        tokens.push_back(Token::Decimal(whole, fractional, token.len().try_into().expect("fractional part is too long")));
                                         token.clear();
                                         mode = Mode::Whitespace;
                                         continue 'matcher;  // don't consume the char
@@ -249,16 +253,16 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<Vec<Token>, Error> 
                     }
                     Mode::Ident => {
                         match char {
-                            ')' | '}' | ':' | '\n' | '\t' | '\r' | ' ' => {
+                            ')' | '}' | ':' | '-' | '\n' | '\t' | '\r' | ' ' => {
                                 match token.as_str() {
                                     "true" => {
-                                        tokens.push(Token::Boolean(true));
+                                        tokens.push_back(Token::Boolean(true));
                                     }
                                     "false" => {
-                                        tokens.push(Token::Boolean(false));
+                                        tokens.push_back(Token::Boolean(false));
                                     }
                                     _ => {
-                                        tokens.push(Token::Ident(token.clone()));
+                                        tokens.push_back(Token::Ident(token.clone()));
                                     }
                                 }
                                 token.clear();

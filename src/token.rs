@@ -13,6 +13,7 @@ pub enum Token {
     RightBrace,
     Dash,
     Colon,
+    Comma,
     Ident(String),
     Newline,
 }
