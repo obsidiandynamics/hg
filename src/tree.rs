@@ -5,5 +5,5 @@ pub enum Node {
     Raw(Token),
     List(Vec<Vec<Node>>),
     Container(Vec<Node>),
-    Pair(Token, Vec<Node>)
+    Cons(Box<Node>, Vec<Node>)
 }

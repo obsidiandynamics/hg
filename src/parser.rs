@@ -17,6 +17,9 @@ pub enum Error {
 
     #[error("empty list segment")]
     EmptyListSegment,
+
+    #[error("empty cons tail")]
+    EmptyConsSegment,
 }
 
 pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
@@ -36,7 +39,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
                     nodes.push(child);
                 }
                 Token::Colon => {
-                    //TODO switch to pair
+                    //TODO switch to cons
                 }
                 Token::Comma | Token::RightParen | Token::RightBrace => {
                     return Err(Error::UnexpectedToken(token))
@@ -122,6 +125,42 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
             }
         } else {
             return Err(Error::UnterminatedList)
+        }
+    }
+}
+
+fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
+    let mut tail = vec![];
+    loop {
+        if let Some(token) = tokens.pop_front() {
+            match token {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
+                    tail.push(Node::Raw(token))
+                }
+                Token::LeftParen => {
+                    let child = parse_list(tokens)?;
+                    tail.push(child);
+                }
+                Token::LeftBrace => {
+                    let child = parse_container(tokens)?;
+                    tail.push(child);
+                }
+                Token::RightBrace | Token::RightParen | Token::Comma | Token::Newline => {
+                    tokens.push_front(token); // restore token for the parent parser
+                    return Ok(Node::Cons(Box::from(head), tail))
+                }
+                Token::Colon => {
+                    return if !tail.is_empty() {
+                        let cons = Node::Cons(Box::from(head), tail);
+                        let child = parse_cons(cons, tokens)?;
+                        Ok(child)
+                    } else {
+                        Err(Error::EmptyConsSegment)
+                    }
+                }
+            }
+        } else {
+            return Ok(Node::Cons(Box::from(head), tail))
         }
     }
 }
