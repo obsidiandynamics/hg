@@ -212,7 +212,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<VecDeque<Token>, Er
                                     }
                                 }
                             }
-                            ')' | '}' | ':' | '-' | '\n' | '\t' | '\r' | ' ' => {
+                            ')' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
                                 match u128::from_str(&token) {
                                     Ok(whole) => {
                                         tokens.push_back(Token::Integer(whole));
@@ -233,7 +233,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<VecDeque<Token>, Er
                     Mode::Decimal(whole) => {
                         match char {
                             '_' => {}
-                            ')' | '}' | ':' | '-' | '\n' | '\t' | '\r' | ' ' => {
+                            ')' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
                                 match u128::from_str(&token) {
                                     Ok(fractional) => {
                                         tokens.push_back(Token::Decimal(whole, fractional, token.len().try_into().expect("fractional part is too long")));

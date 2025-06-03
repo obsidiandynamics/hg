@@ -196,6 +196,13 @@ fn integer_dash_terminated() {
 }
 
 #[test]
+fn integer_comma_terminated() {
+    let str = r#"123,456"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Integer(123), Comma, Integer(456), Newline], tokens);
+}
+
+#[test]
 fn integer_too_large_err() {
     let str = r#"1234567890123456789012345678901234567890:"#;
     let err = tok_err(str);
@@ -235,6 +242,13 @@ fn decimal_colon_terminated() {
     let str = r#"1_234_567_890.0_123_456_789:"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Decimal(1234567890, 123456789, 10), Colon, Newline], tokens);
+}
+
+#[test]
+fn decimal_comma_terminated() {
+    let str = r#"1_234_567_890.0_123_456_789,12.34"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Comma, Decimal(12, 34, 2), Newline], tokens);
 }
 
 #[test]
@@ -285,4 +299,82 @@ fn boolean() {
     let str = r#"true false"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Boolean(true), Boolean(false), Newline], tokens);
+}
+
+#[test]
+fn mixed_flat_sequence_of_tokens() {
+    let str = r#"hello "world"
+    42"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        Ident("hello".into()),
+        Text("world".into()),
+        Newline,
+        Integer(42),
+        Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_container_around_list() {
+    let str = r#"{()}"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        LeftBrace, LeftParen, RightParen, RightBrace, Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_container_nested() {
+    let str = r#"{hello {"world"
+    }}"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        LeftBrace, Ident("hello".into()), LeftBrace, Text("world".into()), Newline, RightBrace, RightBrace, Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_list_with_one_item_trailing_comma() {
+    let str = r#"(1,)"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        LeftParen, Integer(1), Comma, RightParen, Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_list_with_many_items() {
+    let str = r#"(1 2, 3)"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        LeftParen, Integer(1), Integer(2), Comma, Integer(3), RightParen, Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_cons_single_long_tail() {
+    let str = r#"1:2 3"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        Integer(1), Colon, Integer(2), Integer(3), Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_cons_multiple() {
+    let str = r#"1:2 3:4"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Newline
+    ], tokens);
+}
+
+#[test]
+fn mixed_cons_inside_container() {
+    let str = r#"{1:2 3:4}"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![
+        LeftBrace, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightBrace, Newline
+    ], tokens);
 }
