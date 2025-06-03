@@ -12,13 +12,16 @@ pub enum Error {
     #[error("unterminated list")]
     UnterminatedList,
 
+    #[error("unterminated cons")]
+    UnterminatedCons,
+
     #[error("unexpected token {0:?}")]
     UnexpectedToken(Token),
 
     #[error("empty list segment")]
     EmptyListSegment,
 
-    #[error("empty cons tail")]
+    #[error("empty cons segment")]
     EmptyConsSegment,
 }
 
@@ -28,7 +31,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
         if let Some(token) = tokens.pop_front() {
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) | Token::Newline => {
-                    nodes.push(Node::Raw(token))
+                    nodes.push(Node::Raw(token));
                 }
                 Token::LeftParen => {
                     let child = parse_list(&mut tokens)?;
@@ -39,7 +42,9 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
                     nodes.push(child);
                 }
                 Token::Colon => {
-                    //TODO switch to cons
+                    let head = cons_head(&mut nodes)?;
+                    let child = parse_cons(head, &mut tokens)?;
+                    nodes.push(child);
                 }
                 Token::Comma | Token::RightParen | Token::RightBrace => {
                     return Err(Error::UnexpectedToken(token))
@@ -52,13 +57,21 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
     Ok(nodes)
 }
 
+fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
+    if !nodes.is_empty() {
+        Ok(nodes.remove(nodes.len() - 1))
+    } else {
+        Err(Error::EmptyConsSegment)
+    }
+}
+
 fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     let mut children = vec![];
     loop {
         if let Some(token) = tokens.pop_front() {
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) | Token::Newline => {
-                    children.push(Node::Raw(token))
+                    children.push(Node::Raw(token));
                 }
                 Token::LeftParen => {
                     let child = parse_list(tokens)?;
@@ -72,7 +85,9 @@ fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                     return Ok(Node::Container(children))
                 }
                 Token::Colon => {
-                    //TODO
+                    let head = cons_head(&mut children)?;
+                    let child = parse_cons(head, tokens)?;
+                    children.push(child);
                 }
                 Token::Comma | Token::RightParen => {
                     return Err(Error::UnexpectedToken(token))
@@ -91,7 +106,7 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
         if let Some(token) = tokens.pop_front() {
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) | Token::Newline => {
-                    segment.push(Node::Raw(token))
+                    segment.push(Node::Raw(token));
                 }
                 Token::LeftParen => {
                     let child = parse_list(tokens)?;
@@ -113,7 +128,9 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                     segments.push(segment);
                 }
                 Token::Colon => {
-                    //TODO
+                    let head = cons_head(&mut segment)?;
+                    let child = parse_cons(head, tokens)?;
+                    segment.push(child);
                 }
                 Token::RightParen => {
                     if !segment.is_empty() {
@@ -160,7 +177,7 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                 }
             }
         } else {
-            return Ok(Node::Cons(Box::from(head), tail))
+            return Err(Error::UnterminatedCons)
         }
     }
 }

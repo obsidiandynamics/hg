@@ -95,6 +95,20 @@ fn character_unterminated_err() {
 }
 
 #[test]
+fn character_too_long_err() {
+    let str = r#"'hj'"#;
+    let err = tok_err(str);
+    assert_eq!("unexpected character 'j' at line 1, column 3", err.to_string());
+}
+
+#[test]
+fn character_empty_err() {
+    let str = r#"''"#;
+    let err = tok_err(str);
+    assert_eq!("empty character literal at line 1, column 2", err.to_string());
+}
+
+#[test]
 fn character_unknown_escape_err() {
     let str = r#"'\s
         "#;
@@ -207,6 +221,13 @@ fn decimal_small() {
     let str = r#"1234567890.0001"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Decimal(1234567890, 1, 4), Newline], tokens);
+}
+
+#[test]
+fn decimal_implied_leading_zero() {
+    let str = r#".123"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Decimal(0, 123, 3), Newline], tokens);
 }
 
 #[test]

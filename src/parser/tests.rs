@@ -1,8 +1,8 @@
 use crate::parser::{parse, Error};
 use crate::token::Token;
-use crate::token::Token::{Comma, Dash, Ident, Integer, LeftBrace, LeftParen, Newline, RightBrace, RightParen, Text};
+use crate::token::Token::{Colon, Comma, Dash, Ident, Integer, LeftBrace, LeftParen, Newline, RightBrace, RightParen, Text};
 use crate::tree::Node;
-use crate::tree::Node::{Container, List, Raw};
+use crate::tree::Node::{Cons, Container, List, Raw};
 
 fn parse_ok(tokens: Vec<Token>) -> Vec<Node> {
     parse(tokens.into()).unwrap()
@@ -22,6 +22,12 @@ fn flat_sequence_of_tokens() {
         Raw(Dash),
         Raw(Newline)
     ], nodes);
+}
+
+#[test]
+fn unexpected_token_err() {
+    let err = parse_err(vec![Comma]);
+    assert_eq!("unexpected token Comma", err.to_string());
 }
 
 #[test]
@@ -181,4 +187,98 @@ fn list_unterminated_err() {
 fn list_expected_token_err() {
     let err = parse_err(vec![LeftParen, Ident("hello".into()), RightBrace]);
     assert_eq!("unexpected token RightBrace", err.to_string());
+}
+
+#[test]
+fn cons_single() {
+    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Newline]);
+    assert_eq!(vec![
+        Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2))]),
+        Raw(Newline),
+    ], nodes);
+}
+
+#[test]
+fn cons_single_long_tail() {
+    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Newline]);
+    assert_eq!(vec![
+        Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))]),
+        Raw(Newline),
+    ], nodes);
+}
+
+#[test]
+fn cons_multiple() {
+    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Newline]);
+    assert_eq!(vec![
+        Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
+        Raw(Newline),
+    ], nodes);
+}
+
+#[test]
+fn cons_multiple_trailing_empty_segment() {
+    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Colon, Newline]);
+    assert_eq!(vec![
+        Cons(Box::from(Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))])), vec![]),
+        Raw(Newline),
+    ], nodes);
+}
+
+#[test]
+fn cons_with_container_tail() {
+    let nodes = parse_ok(vec![Integer(1), Colon, LeftBrace, Integer(2), Newline, Integer(3), RightBrace, Newline]);
+    assert_eq!(vec![
+        Cons(Box::from(Raw(Integer(1))), vec![Container(vec![Raw(Integer(2)), Raw(Newline), Raw(Integer(3))])]),
+        Raw(Newline),
+    ], nodes);
+}
+
+#[test]
+fn cons_with_list_tail() {
+    let nodes = parse_ok(vec![Integer(1), Colon, LeftParen, Integer(2), Comma, Integer(3), Integer(4), RightParen, Newline]);
+    assert_eq!(vec![
+        Cons(Box::from(Raw(Integer(1))), vec![List(vec![vec![Raw(Integer(2))], vec![Raw(Integer(3)), Raw(Integer(4))]])]),
+        Raw(Newline),
+    ], nodes);
+}
+
+#[test]
+fn cons_inside_container() {
+    let nodes = parse_ok(vec![LeftBrace, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightBrace]);
+    assert_eq!(vec![
+        Container(vec![
+            Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
+        ])
+    ], nodes);
+}
+
+#[test]
+fn cons_inside_list() {
+    let nodes = parse_ok(vec![LeftParen, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightParen]);
+    assert_eq!(vec![
+        List(vec![
+            vec![
+                Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
+            ]
+        ])
+    ], nodes);
+}
+
+#[test]
+fn cons_empty_starting_segment_err() {
+    let err = parse_err(vec![Colon, Integer(2)]);
+    assert_eq!("empty cons segment", err.to_string());
+}
+
+#[test]
+fn cons_empty_intermediate_segment_err() {
+    let err = parse_err(vec![Integer(1), Colon, Integer(2), Colon, Colon]);
+    assert_eq!("empty cons segment", err.to_string());
+}
+
+#[test]
+fn cons_unterminated_err() {
+    let err = parse_err(vec![Integer(1), Colon, Integer(2)]);
+    assert_eq!("unterminated cons", err.to_string());
 }
