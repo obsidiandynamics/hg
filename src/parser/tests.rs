@@ -1,8 +1,8 @@
 use crate::parser::{parse, Error};
 use crate::token::Token;
-use crate::token::Token::{Colon, Comma, Dash, Ident, Integer, LeftBrace, LeftParen, Newline, RightBrace, RightParen, Text};
+use crate::token::Token::{Colon, Comma, Dash, Decimal, Ident, Integer, LeftBrace, LeftParen, Newline, RightBrace, RightParen, Text};
 use crate::tree::Node;
-use crate::tree::Node::{Cons, Container, List, Raw};
+use crate::tree::Node::{Cons, Container, List, Prefix, Raw};
 
 fn parse_ok(tokens: Vec<Token>) -> Vec<Node> {
     parse(tokens.into()).unwrap()
@@ -14,12 +14,12 @@ fn parse_err(tokens: Vec<Token>) -> Error {
 
 #[test]
 fn flat_sequence_of_tokens() {
-    let nodes = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Dash, Newline]);
+    let nodes = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Integer(42), Newline]);
     assert_eq!(vec![
         Raw(Ident("hello".into())),
         Raw(Text("world".into())),
         Raw(Newline),
-        Raw(Dash),
+        Raw(Integer(42)),
         Raw(Newline)
     ], nodes);
 }
@@ -61,14 +61,14 @@ fn container_around_list() {
 
 #[test]
 fn container_flat() {
-    let nodes = parse_ok(vec![LeftBrace, Ident("hello".into()), Text("world".into()), Newline, RightBrace, Dash, Newline]);
+    let nodes = parse_ok(vec![LeftBrace, Ident("hello".into()), Text("world".into()), Newline, RightBrace, Integer(42), Newline]);
     assert_eq!(vec![
         Container(vec![
             Raw(Ident("hello".into())),
             Raw(Text("world".into())),
             Raw(Newline),
         ]),
-        Raw(Dash),
+        Raw(Integer(42)),
         Raw(Newline)
     ], nodes);
 }
@@ -193,7 +193,7 @@ fn list_expected_token_err() {
 fn cons_single() {
     let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Newline]);
     assert_eq!(vec![
-        Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2))]),
+        Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2))]),
         Raw(Newline),
     ], nodes);
 }
@@ -202,7 +202,7 @@ fn cons_single() {
 fn cons_single_long_tail() {
     let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Newline]);
     assert_eq!(vec![
-        Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))]),
+        Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))]),
         Raw(Newline),
     ], nodes);
 }
@@ -211,7 +211,7 @@ fn cons_single_long_tail() {
 fn cons_multiple() {
     let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Newline]);
     assert_eq!(vec![
-        Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
+        Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
         Raw(Newline),
     ], nodes);
 }
@@ -220,7 +220,7 @@ fn cons_multiple() {
 fn cons_multiple_trailing_empty_segment() {
     let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Colon, Newline]);
     assert_eq!(vec![
-        Cons(Box::from(Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))])), vec![]),
+        Cons(Box::new(Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))])), vec![]),
         Raw(Newline),
     ], nodes);
 }
@@ -229,7 +229,7 @@ fn cons_multiple_trailing_empty_segment() {
 fn cons_with_container_tail() {
     let nodes = parse_ok(vec![Integer(1), Colon, LeftBrace, Integer(2), Newline, Integer(3), RightBrace, Newline]);
     assert_eq!(vec![
-        Cons(Box::from(Raw(Integer(1))), vec![Container(vec![Raw(Integer(2)), Raw(Newline), Raw(Integer(3))])]),
+        Cons(Box::new(Raw(Integer(1))), vec![Container(vec![Raw(Integer(2)), Raw(Newline), Raw(Integer(3))])]),
         Raw(Newline),
     ], nodes);
 }
@@ -238,7 +238,7 @@ fn cons_with_container_tail() {
 fn cons_with_list_tail() {
     let nodes = parse_ok(vec![Integer(1), Colon, LeftParen, Integer(2), Comma, Integer(3), Integer(4), RightParen, Newline]);
     assert_eq!(vec![
-        Cons(Box::from(Raw(Integer(1))), vec![List(vec![vec![Raw(Integer(2))], vec![Raw(Integer(3)), Raw(Integer(4))]])]),
+        Cons(Box::new(Raw(Integer(1))), vec![List(vec![vec![Raw(Integer(2))], vec![Raw(Integer(3)), Raw(Integer(4))]])]),
         Raw(Newline),
     ], nodes);
 }
@@ -248,7 +248,7 @@ fn cons_inside_container() {
     let nodes = parse_ok(vec![LeftBrace, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightBrace]);
     assert_eq!(vec![
         Container(vec![
-            Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
+            Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
         ])
     ], nodes);
 }
@@ -259,7 +259,7 @@ fn cons_inside_list() {
     assert_eq!(vec![
         List(vec![
             vec![
-                Cons(Box::from(Cons(Box::from(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
+                Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
             ]
         ])
     ], nodes);
@@ -281,4 +281,40 @@ fn cons_empty_intermediate_segment_err() {
 fn cons_unterminated_err() {
     let err = parse_err(vec![Integer(1), Colon, Integer(2)]);
     assert_eq!("unterminated cons", err.to_string());
+}
+
+#[test]
+fn prefix_with_integer() {
+    let nodes = parse_ok(vec![Dash, Integer(1)]);
+    assert_eq!(vec![Prefix(Dash, Box::new(Raw(Integer(1))))], nodes);
+}
+
+#[test]
+fn prefix_with_decimal() {
+    let nodes = parse_ok(vec![Dash, Decimal(10, 5, 2)]);
+    assert_eq!(vec![Prefix(Dash, Box::new(Raw(Decimal(10, 5, 2))))], nodes);
+}
+
+#[test]
+fn prefix_with_container() {
+    let nodes = parse_ok(vec![Dash, LeftBrace, Integer(1), Newline, Integer(2), RightBrace]);
+    assert_eq!(vec![Prefix(Dash, Box::new(Container(vec![Raw(Integer(1)), Raw(Newline), Raw(Integer(2))])))], nodes);
+}
+
+#[test]
+fn prefix_with_list() {
+    let nodes = parse_ok(vec![Dash, LeftParen, Integer(1), Newline, Integer(2), Comma, Integer(3), RightParen]);
+    assert_eq!(vec![Prefix(Dash, Box::new(List(vec![vec![Raw(Integer(1)), Raw(Newline), Raw(Integer(2))], vec![Raw(Integer(3))]])))], nodes);
+}
+
+#[test]
+fn prefix_unterminated_err() {
+    let err = parse_err(vec![Dash]);
+    assert_eq!("unterminated prefix", err.to_string());
+}
+
+#[test]
+fn prefix_unexpected_token_err() {
+    let err = parse_err(vec![Dash, Dash]);
+    assert_eq!("unexpected token Dash", err.to_string());
 }

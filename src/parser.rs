@@ -15,6 +15,9 @@ pub enum Error {
     #[error("unterminated cons")]
     UnterminatedCons,
 
+    #[error("unterminated prefix")]
+    UnterminatedPrefix,
+
     #[error("unexpected token {0:?}")]
     UnexpectedToken(Token),
 
@@ -30,7 +33,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
     loop {
         if let Some(token) = tokens.pop_front() {
             match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) | Token::Newline => {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Newline => {
                     nodes.push(Node::Raw(token));
                 }
                 Token::LeftParen => {
@@ -44,6 +47,10 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
                 Token::Colon => {
                     let head = cons_head(&mut nodes)?;
                     let child = parse_cons(head, &mut tokens)?;
+                    nodes.push(child);
+                }
+                Token::Dash => {
+                    let child = parse_prefix(token, &mut tokens)?;
                     nodes.push(child);
                 }
                 Token::Comma | Token::RightParen | Token::RightBrace => {
@@ -164,11 +171,11 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                 }
                 Token::RightBrace | Token::RightParen | Token::Comma | Token::Newline => {
                     tokens.push_front(token); // restore token for the parent parser
-                    return Ok(Node::Cons(Box::from(head), tail))
+                    return Ok(Node::Cons(Box::new(head), tail))
                 }
                 Token::Colon => {
                     return if !tail.is_empty() {
-                        let cons = Node::Cons(Box::from(head), tail);
+                        let cons = Node::Cons(Box::new(head), tail);
                         let child = parse_cons(cons, tokens)?;
                         Ok(child)
                     } else {
@@ -179,6 +186,32 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
         } else {
             return Err(Error::UnterminatedCons)
         }
+    }
+}
+
+fn parse_prefix(symbol: Token, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
+    match tokens.pop_front() {
+        Some(token) => {
+            match token {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
+                    Ok(Node::Prefix(symbol, Box::new(Node::Raw(token))))
+                }
+                Token::LeftParen => {
+                    let child = parse_list(tokens)?;
+                    Ok(Node::Prefix(symbol, Box::new(child)))
+                }
+                Token::LeftBrace => {
+                    let child = parse_container(tokens)?;
+                    Ok(Node::Prefix(symbol, Box::new(child)))
+                }
+                Token::Newline | Token::RightBrace | Token::RightParen | Token::Comma | Token::Colon | Token::Dash => {
+                    Err(Error::UnexpectedToken(token))
+                }
+            }
+        }
+        None => {
+            Err(Error::UnterminatedPrefix)
+        },
     }
 }
 
