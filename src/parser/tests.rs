@@ -1,10 +1,11 @@
 use crate::parser::{parse, Error};
+use crate::sentence;
 use crate::token::Token;
 use crate::token::Token::{Colon, Comma, Dash, Decimal, Ident, Integer, LeftBrace, LeftParen, Newline, RightBrace, RightParen, Text};
-use crate::tree::Node;
 use crate::tree::Node::{Cons, Container, List, Prefix, Raw};
+use crate::tree::Sentence;
 
-fn parse_ok(tokens: Vec<Token>) -> Vec<Node> {
+fn parse_ok(tokens: Vec<Token>) -> Vec<Sentence> {
     parse(tokens.into()).unwrap()
 }
 
@@ -14,14 +15,16 @@ fn parse_err(tokens: Vec<Token>) -> Error {
 
 #[test]
 fn flat_sequence_of_tokens() {
-    let nodes = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Integer(42), Newline]);
+    let stanza = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Integer(42), Newline]);
     assert_eq!(vec![
-        Raw(Ident("hello".into())),
-        Raw(Text("world".into())),
-        Raw(Newline),
-        Raw(Integer(42)),
-        Raw(Newline)
-    ], nodes);
+        sentence![
+            Raw(Ident("hello".into())),
+            Raw(Text("world".into())),
+        ],
+        sentence![
+            Raw(Integer(42)),
+        ]
+    ], stanza);
 }
 
 #[test]
@@ -32,61 +35,70 @@ fn unexpected_token_err() {
 
 #[test]
 fn container_empty() {
-    let nodes = parse_ok(vec![LeftBrace, RightBrace]);
+    let stanza = parse_ok(vec![LeftBrace, RightBrace, Newline]);
     assert_eq!(vec![
-        Container(vec![
-        ]),
-    ], nodes);
+        sentence![
+            Container(vec![
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn container_nested_empty() {
-    let nodes = parse_ok(vec![LeftBrace, LeftBrace, RightBrace, RightBrace]);
+    let stanza = parse_ok(vec![LeftBrace, LeftBrace, RightBrace, RightBrace, Newline]);
     assert_eq!(vec![
-        Container(vec![
-            Container(vec![])
-        ]),
-    ], nodes);
+        sentence![
+            Container(vec![
+                Container(vec![])
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn container_around_list() {
-    let nodes = parse_ok(vec![LeftBrace, LeftParen, RightParen, RightBrace]);
+    let stanza = parse_ok(vec![LeftBrace, LeftParen, RightParen, RightBrace, Newline]);
     assert_eq!(vec![
-        Container(vec![
-            List(vec![])
-        ]),
-    ], nodes);
+        sentence![
+            Container(vec![
+                List(vec![])
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn container_flat() {
-    let nodes = parse_ok(vec![LeftBrace, Ident("hello".into()), Text("world".into()), Newline, RightBrace, Integer(42), Newline]);
+    let stanza = parse_ok(vec![LeftBrace, Ident("hello".into()), Text("world".into()), Newline, RightBrace, Integer(42), Newline]);
     assert_eq!(vec![
-        Container(vec![
-            Raw(Ident("hello".into())),
-            Raw(Text("world".into())),
-            Raw(Newline),
-        ]),
-        Raw(Integer(42)),
-        Raw(Newline)
-    ], nodes);
+        sentence![
+            Container(vec![
+                Raw(Ident("hello".into())),
+                Raw(Text("world".into())),
+                Raw(Newline),
+            ]),
+            Raw(Integer(42)),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn container_nested() {
-    let nodes = parse_ok(vec![LeftBrace, Ident("hello".into()), LeftBrace, Text("world".into()), Newline, RightBrace, RightBrace]);
+    let stanza = parse_ok(vec![LeftBrace, Ident("hello".into()), LeftBrace, Text("world".into()), Newline, RightBrace, RightBrace, Newline]);
     assert_eq!(vec![
-        Container(vec![
-            Raw(Ident("hello".into())),
-            Container(
-                vec![
-                    Raw(Text("world".into())),
-                    Raw(Newline),
-                ]
-            )
-        ]),
-    ], nodes);
+        sentence![
+            Container(vec![
+                Raw(Ident("hello".into())),
+                Container(
+                    vec![
+                        Raw(Text("world".into())),
+                        Raw(Newline),
+                    ]
+                )
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
@@ -103,72 +115,86 @@ fn container_expected_token_err() {
 
 #[test]
 fn list_empty() {
-    let nodes = parse_ok(vec![LeftParen, RightParen]);
+    let stanza = parse_ok(vec![LeftParen, RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn list_nested_empty() {
-    let nodes = parse_ok(vec![LeftParen, LeftParen, RightParen, RightParen]);
+    let stanza = parse_ok(vec![LeftParen, LeftParen, RightParen, RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![List(vec![])]
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![List(vec![])]
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn list_around_container() {
-    let nodes = parse_ok(vec![LeftParen, LeftBrace, RightBrace, RightParen]);
+    let stanza = parse_ok(vec![LeftParen, LeftBrace, RightBrace, RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![Container(vec![])]
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![Container(vec![])]
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn list_with_one_item_single() {
-    let nodes = parse_ok(vec![LeftParen, Integer(1), RightParen]);
+    let stanza = parse_ok(vec![LeftParen, Integer(1), RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![Raw(Integer(1))]
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![Raw(Integer(1))]
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn list_with_one_item_single_trailing_comma() {
-    let nodes = parse_ok(vec![LeftParen, Integer(1), Comma, RightParen]);
+    let stanza = parse_ok(vec![LeftParen, Integer(1), Comma, RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![Raw(Integer(1))]
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![Raw(Integer(1))]
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn list_with_one_item_sequence() {
-    let nodes = parse_ok(vec![LeftParen, Integer(1), Integer(2), RightParen]);
+    let stanza = parse_ok(vec![LeftParen, Integer(1), Integer(2), RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![Raw(Integer(1)), Raw(Integer(2))]
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![Raw(Integer(1)), Raw(Integer(2))]
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn list_with_many_items() {
-    let nodes = parse_ok(vec![LeftParen, Integer(1), Integer(2), Comma, Integer(3), RightParen]);
+    let stanza = parse_ok(vec![LeftParen, Integer(1), Integer(2), Comma, Integer(3), RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![Raw(Integer(1)), Raw(Integer(2))],
-            vec![Raw(Integer(3))]
-        ]),
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![Raw(Integer(1)), Raw(Integer(2))],
+                vec![Raw(Integer(3))]
+            ]),
+        ]
+    ], stanza);
 }
 
 #[test]
@@ -191,78 +217,88 @@ fn list_expected_token_err() {
 
 #[test]
 fn cons_single() {
-    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Newline]);
+    let stanza = parse_ok(vec![Integer(1), Colon, Integer(2), Newline]);
     assert_eq!(vec![
-        Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2))]),
-        Raw(Newline),
-    ], nodes);
+        sentence![
+            Cons(Box::new(Raw(Integer(1))), sentence![Raw(Integer(2))]),
+        ]
+    ], stanza);
 }
 
 #[test]
 fn cons_single_long_tail() {
-    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Newline]);
+    let stanza = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Newline]);
     assert_eq!(vec![
-        Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))]),
-        Raw(Newline),
-    ], nodes);
+        sentence![
+            Cons(Box::new(Raw(Integer(1))), sentence![Raw(Integer(2)), Raw(Integer(3))]),
+        ],
+    ], stanza);
 }
 
 #[test]
 fn cons_multiple() {
-    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Newline]);
+    let stanza = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Newline]);
     assert_eq!(vec![
-        Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
-        Raw(Newline),
-    ], nodes);
+        sentence![
+            Cons(Box::new(Cons(Box::new(Raw(Integer(1))), sentence![Raw(Integer(2)), Raw(Integer(3))])), sentence![Raw(Integer(4))]),
+        ],
+    ], stanza);
 }
 
 #[test]
 fn cons_multiple_trailing_empty_segment() {
-    let nodes = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Colon, Newline]);
+    let stanza = parse_ok(vec![Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Colon, Newline]);
     assert_eq!(vec![
-        Cons(Box::new(Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))])), vec![]),
-        Raw(Newline),
-    ], nodes);
+        sentence![
+            Cons(Box::new(Cons(Box::new(Cons(Box::new(Raw(Integer(1))), sentence![Raw(Integer(2)), Raw(Integer(3))])), sentence![Raw(Integer(4))])), sentence![]),
+        ],
+    ], stanza);
 }
 
 #[test]
 fn cons_with_container_tail() {
-    let nodes = parse_ok(vec![Integer(1), Colon, LeftBrace, Integer(2), Newline, Integer(3), RightBrace, Newline]);
+    let stanza = parse_ok(vec![Integer(1), Colon, LeftBrace, Integer(2), Newline, Integer(3), RightBrace, Newline]);
     assert_eq!(vec![
-        Cons(Box::new(Raw(Integer(1))), vec![Container(vec![Raw(Integer(2)), Raw(Newline), Raw(Integer(3))])]),
-        Raw(Newline),
-    ], nodes);
+        sentence![
+            Cons(Box::new(Raw(Integer(1))), sentence![Container(vec![Raw(Integer(2)), Raw(Newline), Raw(Integer(3))])]),
+        ],
+    ], stanza);
 }
 
 #[test]
 fn cons_with_list_tail() {
-    let nodes = parse_ok(vec![Integer(1), Colon, LeftParen, Integer(2), Comma, Integer(3), Integer(4), RightParen, Newline]);
+    let stanza = parse_ok(vec![Integer(1), Colon, LeftParen, Integer(2), Comma, Integer(3), Integer(4), RightParen, Newline]);
     assert_eq!(vec![
-        Cons(Box::new(Raw(Integer(1))), vec![List(vec![vec![Raw(Integer(2))], vec![Raw(Integer(3)), Raw(Integer(4))]])]),
-        Raw(Newline),
-    ], nodes);
+        sentence![
+            Cons(Box::new(Raw(Integer(1))), sentence![List(vec![vec![Raw(Integer(2))], vec![Raw(Integer(3)), Raw(Integer(4))]])]),
+        ],
+    ], stanza);
 }
 
 #[test]
 fn cons_inside_container() {
-    let nodes = parse_ok(vec![LeftBrace, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightBrace]);
+    let stanza = parse_ok(vec![LeftBrace, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightBrace, Newline]);
     assert_eq!(vec![
-        Container(vec![
-            Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
-        ])
-    ], nodes);
+        sentence![
+            Container(vec![
+                Cons(Box::new(Cons(Box::new(Raw(Integer(1))), sentence![Raw(Integer(2)), Raw(Integer(3))])), sentence![Raw(Integer(4))]),
+            ])
+        ]
+    ], stanza);
 }
 
 #[test]
 fn cons_inside_list() {
-    let nodes = parse_ok(vec![LeftParen, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightParen]);
+    let stanza = parse_ok(vec![LeftParen, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightParen, Newline]);
     assert_eq!(vec![
-        List(vec![
-            vec![
-                Cons(Box::new(Cons(Box::new(Raw(Integer(1))), vec![Raw(Integer(2)), Raw(Integer(3))])), vec![Raw(Integer(4))]),
-            ]
-        ])
-    ], nodes);
+        sentence![
+            List(vec![
+                vec![
+                    Cons(Box::new(Cons(Box::new(Raw(Integer(1))), sentence![Raw(Integer(2)), Raw(Integer(3))])), sentence![Raw(Integer(4))]),
+                ]
+            ])
+        ]
+    ], stanza);
 }
 
 #[test]
@@ -285,26 +321,42 @@ fn cons_unterminated_err() {
 
 #[test]
 fn prefix_with_integer() {
-    let nodes = parse_ok(vec![Dash, Integer(1)]);
-    assert_eq!(vec![Prefix(Dash, Box::new(Raw(Integer(1))))], nodes);
+    let stanza = parse_ok(vec![Dash, Integer(1), Newline]);
+    assert_eq!(vec![
+        sentence![
+            Prefix(Dash, Box::new(Raw(Integer(1))))
+        ]
+    ], stanza);
 }
 
 #[test]
 fn prefix_with_decimal() {
-    let nodes = parse_ok(vec![Dash, Decimal(10, 5, 2)]);
-    assert_eq!(vec![Prefix(Dash, Box::new(Raw(Decimal(10, 5, 2))))], nodes);
+    let stanza = parse_ok(vec![Dash, Decimal(10, 5, 2), Newline]);
+    assert_eq!(vec![
+        sentence![  
+            Prefix(Dash, Box::new(Raw(Decimal(10, 5, 2))))
+        ]
+    ], stanza);
 }
 
 #[test]
 fn prefix_with_container() {
-    let nodes = parse_ok(vec![Dash, LeftBrace, Integer(1), Newline, Integer(2), RightBrace]);
-    assert_eq!(vec![Prefix(Dash, Box::new(Container(vec![Raw(Integer(1)), Raw(Newline), Raw(Integer(2))])))], nodes);
+    let stanza = parse_ok(vec![Dash, LeftBrace, Integer(1), Newline, Integer(2), RightBrace, Newline]);
+    assert_eq!(vec![
+        sentence![
+            Prefix(Dash, Box::new(Container(vec![Raw(Integer(1)), Raw(Newline), Raw(Integer(2))])))
+        ]
+    ], stanza);
 }
 
 #[test]
 fn prefix_with_list() {
-    let nodes = parse_ok(vec![Dash, LeftParen, Integer(1), Newline, Integer(2), Comma, Integer(3), RightParen]);
-    assert_eq!(vec![Prefix(Dash, Box::new(List(vec![vec![Raw(Integer(1)), Raw(Newline), Raw(Integer(2))], vec![Raw(Integer(3))]])))], nodes);
+    let stanza = parse_ok(vec![Dash, LeftParen, Integer(1), Newline, Integer(2), Comma, Integer(3), RightParen, Newline]);
+    assert_eq!(vec![
+        sentence![
+            Prefix(Dash, Box::new(List(vec![vec![Raw(Integer(1)), Raw(Newline), Raw(Integer(2))], vec![Raw(Integer(3))]])))
+        ]
+    ], stanza);
 }
 
 #[test]

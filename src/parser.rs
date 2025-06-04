@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::mem;
 use thiserror::Error;
 use crate::token::Token;
-use crate::tree::Node;
+use crate::tree::{Node, Sentence};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,6 +18,9 @@ pub enum Error {
     #[error("unterminated prefix")]
     UnterminatedPrefix,
 
+    #[error("unterminated sentence")]
+    UnterminatedSentence,
+
     #[error("unexpected token {0:?}")]
     UnexpectedToken(Token),
 
@@ -28,48 +31,48 @@ pub enum Error {
     EmptyConsSegment,
 }
 
-pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Node>, Error> {
-    let mut nodes = vec![];
-    loop {
-        if let Some(token) = tokens.pop_front() {
-            match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Newline => {
-                    nodes.push(Node::Raw(token));
-                }
-                Token::LeftParen => {
-                    let child = parse_list(&mut tokens)?;
-                    nodes.push(child);
-                }
-                Token::LeftBrace => {
-                    let child = parse_container(&mut tokens)?;
-                    nodes.push(child);
-                }
-                Token::Colon => {
-                    let head = cons_head(&mut nodes)?;
-                    let child = parse_cons(head, &mut tokens)?;
-                    nodes.push(child);
-                }
-                Token::Dash => {
-                    let child = parse_prefix(token, &mut tokens)?;
-                    nodes.push(child);
-                }
-                Token::Comma | Token::RightParen | Token::RightBrace => {
-                    return Err(Error::UnexpectedToken(token))
+pub fn parse(mut tokens: VecDeque<Token>) -> Result<Vec<Sentence>, Error> {
+    let mut sentences = vec![];
+    let mut sentence = vec![];
+    while let Some(token) = tokens.pop_front() {
+        match token {
+            Token::Newline => {
+                if !sentence.is_empty() {
+                    let sentence = mem::take(&mut sentence);
+                    sentences.push(Sentence(sentence));
                 }
             }
-        } else {
-            break;
+            Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
+                sentence.push(Node::Raw(token));
+            }
+            Token::LeftParen => {
+                let child = parse_list(&mut tokens)?;
+                sentence.push(child);
+            }
+            Token::LeftBrace => {
+                let child = parse_container(&mut tokens)?;
+                sentence.push(child);
+            }
+            Token::Colon => {
+                let head = cons_head(&mut sentence)?;
+                let child = parse_cons(head, &mut tokens)?;
+                sentence.push(child);
+            }
+            Token::Dash => {
+                let child = parse_prefix(token, &mut tokens)?;
+                sentence.push(child);
+            }
+            Token::Comma | Token::RightParen | Token::RightBrace => {
+                return Err(Error::UnexpectedToken(token))
+            }
         }
     }
-    Ok(nodes)
-}
-
-fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
-    if !nodes.is_empty() {
-        Ok(nodes.remove(nodes.len() - 1))
+    
+    if sentence.is_empty() {
+        Ok(sentences)
     } else {
-        Err(Error::EmptyConsSegment)
-    }
+        Err(Error::UnterminatedSentence)
+    } 
 }
 
 fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
@@ -130,8 +133,7 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                     if segment.is_empty() {
                         return Err(Error::EmptyListSegment)
                     }
-                    let new_segment = vec![];
-                    let segment = mem::replace(&mut segment, new_segment);
+                    let segment = mem::take(&mut segment);
                     segments.push(segment);
                 }
                 Token::Colon => {
@@ -153,6 +155,14 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     }
 }
 
+fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
+    if !nodes.is_empty() {
+        Ok(nodes.remove(nodes.len() - 1))
+    } else {
+        Err(Error::EmptyConsSegment)
+    }
+}
+
 fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     let mut tail = vec![];
     loop {
@@ -171,11 +181,11 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                 }
                 Token::RightBrace | Token::RightParen | Token::Comma | Token::Newline => {
                     tokens.push_front(token); // restore token for the parent parser
-                    return Ok(Node::Cons(Box::new(head), tail))
+                    return Ok(Node::Cons(Box::new(head), Sentence(tail)))
                 }
                 Token::Colon => {
                     return if !tail.is_empty() {
-                        let cons = Node::Cons(Box::new(head), tail);
+                        let cons = Node::Cons(Box::new(head), Sentence(tail));
                         let child = parse_cons(cons, tokens)?;
                         Ok(child)
                     } else {
