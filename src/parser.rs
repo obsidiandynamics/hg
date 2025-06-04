@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::mem;
 use thiserror::Error;
 use crate::token::Token;
-use crate::tree::{Node, Sentence, Stanza};
+use crate::tree::{Node, Sentence, Verse};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -31,15 +31,15 @@ pub enum Error {
     EmptyConsSegment,
 }
 
-pub fn parse(mut tokens: VecDeque<Token>) -> Result<Stanza, Error> {
-    let mut stanza = vec![];
+pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
+    let mut verse = vec![];
     let mut sentence = vec![];
     while let Some(token) = tokens.pop_front() {
         match token {
             Token::Newline => {
                 if !sentence.is_empty() {
                     let sentence = mem::take(&mut sentence);
-                    stanza.push(Sentence(sentence));
+                    verse.push(Sentence(sentence));
                 }
             }
             Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
@@ -69,7 +69,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Stanza, Error> {
     }
     
     if sentence.is_empty() {
-        Ok(Stanza(stanza))
+        Ok(Verse(verse))
     } else {
         Err(Error::UnterminatedSentence)
     } 
