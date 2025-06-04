@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::mem;
 use thiserror::Error;
 use crate::token::Token;
-use crate::tree::{Node, Sentence, Verse};
+use crate::tree::{Node, Phrase, Verse};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,8 +18,8 @@ pub enum Error {
     #[error("unterminated prefix")]
     UnterminatedPrefix,
 
-    #[error("unterminated sentence")]
-    UnterminatedSentence,
+    #[error("unterminated phrase")]
+    UnterminatedPhrase,
 
     #[error("unexpected token {0:?}")]
     UnexpectedToken(Token),
@@ -33,46 +33,46 @@ pub enum Error {
 
 pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
     let mut verse = vec![];
-    let mut sentence = vec![];
+    let mut phrase = vec![];
     while let Some(token) = tokens.pop_front() {
         match token {
             Token::Newline => {
-                if !sentence.is_empty() {
-                    let sentence = mem::take(&mut sentence);
-                    verse.push(Sentence(sentence));
+                if !phrase.is_empty() {
+                    let phrase = mem::take(&mut phrase);
+                    verse.push(Phrase(phrase));
                 }
             }
             Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
-                sentence.push(Node::Raw(token));
+                phrase.push(Node::Raw(token));
             }
             Token::LeftParen => {
                 let child = parse_list(&mut tokens)?;
-                sentence.push(child);
+                phrase.push(child);
             }
             Token::LeftBrace => {
                 let child = parse_container(&mut tokens)?;
-                sentence.push(child);
+                phrase.push(child);
             }
             Token::Colon => {
-                let head = cons_head(&mut sentence)?;
+                let head = cons_head(&mut phrase)?;
                 let child = parse_cons(head, &mut tokens)?;
-                sentence.push(child);
+                phrase.push(child);
             }
             Token::Dash => {
                 let child = parse_prefix(token, &mut tokens)?;
-                sentence.push(child);
+                phrase.push(child);
             }
             Token::Comma | Token::RightParen | Token::RightBrace => {
                 return Err(Error::UnexpectedToken(token))
             }
         }
     }
-    
-    if sentence.is_empty() {
+
+    if phrase.is_empty() {
         Ok(Verse(verse))
     } else {
-        Err(Error::UnterminatedSentence)
-    } 
+        Err(Error::UnterminatedPhrase)
+    }
 }
 
 fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
@@ -181,11 +181,11 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                 }
                 Token::RightBrace | Token::RightParen | Token::Comma | Token::Newline => {
                     tokens.push_front(token); // restore token for the parent parser
-                    return Ok(Node::Cons(Box::new(head), Sentence(tail)))
+                    return Ok(Node::Cons(Box::new(head), Phrase(tail)))
                 }
                 Token::Colon => {
                     return if !tail.is_empty() {
-                        let cons = Node::Cons(Box::new(head), Sentence(tail));
+                        let cons = Node::Cons(Box::new(head), Phrase(tail));
                         let child = parse_cons(cons, tokens)?;
                         Ok(child)
                     } else {

@@ -5,35 +5,35 @@ pub enum Node {
     Raw(Token),
     List(Vec<Vec<Node>>),
     Container(Vec<Node>),
-    Cons(Box<Node>, Sentence),
+    Cons(Box<Node>, Phrase),
     Prefix(Token, Box<Node>)
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Sentence(pub Vec<Node>);
+pub struct Phrase(pub Vec<Node>);
 
-impl From<Sentence> for Vec<Node> {
-    fn from(sentence: Sentence) -> Self {
-        sentence.0
+impl From<Phrase> for Vec<Node> {
+    fn from(phrase: Phrase) -> Self {
+        phrase.0
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Verse(pub Vec<Sentence>);
+pub struct Verse(pub Vec<Phrase>);
 
-impl From<Verse> for Vec<Sentence> {
+impl From<Verse> for Vec<Phrase> {
     fn from(verse: Verse) -> Self {
         verse.0
     }
 }
 
 #[macro_export]
-macro_rules! sentence {
+macro_rules! phrase {
     () => (
-        $crate::tree::Sentence(Vec::new())
+        $crate::tree::Phrase(Vec::new())
     );
     ($($x:expr),+ $(,)?) => (
-        $crate::tree::Sentence((vec![$($x),+]))
+        $crate::tree::Phrase((vec![$($x),+]))
     );
 }
 
@@ -50,24 +50,24 @@ macro_rules! verse {
 #[cfg(test)]
 mod tests {
     use crate::token::Token;
-    use crate::tree::{Node, Sentence, Verse};
+    use crate::tree::{Node, Phrase, Verse};
 
     #[test]
-    fn empty_sentence() {
-        let sentence = sentence![];
-        assert_eq!(Sentence(vec![]), sentence);
+    fn empty_phrase() {
+        let phrase = phrase![];
+        assert_eq!(Phrase(vec![]), phrase);
     }
 
     #[test]
-    fn nonempty_sentence() {
-        let sentence = sentence![Node::Raw(Token::Integer(1))];
-        assert_eq!(Sentence(vec![Node::Raw(Token::Integer(1))]), sentence);
+    fn nonempty_phrase() {
+        let phrase = phrase![Node::Raw(Token::Integer(1))];
+        assert_eq!(Phrase(vec![Node::Raw(Token::Integer(1))]), phrase);
     }
     
     #[test]
-    fn vec_from_sentence() {
-        let sentence = sentence![Node::Raw(Token::Integer(1))];
-        let vec: Vec<_> = sentence.into();
+    fn vec_from_phrase() {
+        let phrase = phrase![Node::Raw(Token::Integer(1))];
+        let vec: Vec<_> = phrase.into();
         assert_eq!(vec![Node::Raw(Token::Integer(1))], vec);
     }
 
@@ -79,14 +79,14 @@ mod tests {
 
     #[test]
     fn nonempty_verse() {
-        let verse = verse![sentence![Node::Raw(Token::Integer(1))]];
-        assert_eq!(Verse(vec![Sentence(vec![Node::Raw(Token::Integer(1))])]), verse);
+        let verse = verse![phrase![Node::Raw(Token::Integer(1))]];
+        assert_eq!(Verse(vec![Phrase(vec![Node::Raw(Token::Integer(1))])]), verse);
     }
 
     #[test]
     fn vec_from_verse() {
-        let verse = verse![sentence![Node::Raw(Token::Integer(1))]];
+        let verse = verse![phrase![Node::Raw(Token::Integer(1))]];
         let vec: Vec<_> = verse.into();
-        assert_eq!(vec![Sentence(vec![Node::Raw(Token::Integer(1))])], vec);
+        assert_eq!(vec![Phrase(vec![Node::Raw(Token::Integer(1))])], vec);
     }
 }
