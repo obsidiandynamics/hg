@@ -3,8 +3,8 @@ use crate::token::Token;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     Raw(Token),
-    List(Vec<Vec<Node>>),
-    Container(Vec<Node>),
+    List(Vec<Verse>),
+    Container(Verse),
     Cons(Box<Node>, Phrase),
     Prefix(Token, Box<Node>)
 }

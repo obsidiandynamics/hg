@@ -76,28 +76,38 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
 }
 
 fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
-    let mut children = vec![];
+    let mut verse = vec![];
+    let mut phrase = vec![];
     loop {
         if let Some(token) = tokens.pop_front() {
             match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) | Token::Newline => {
-                    children.push(Node::Raw(token));
+                Token::Newline => {
+                    if !phrase.is_empty() {
+                        let phrase = mem::take(&mut phrase);
+                        verse.push(Phrase(phrase));
+                    }
+                }
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
+                    phrase.push(Node::Raw(token));
                 }
                 Token::LeftParen => {
                     let child = parse_list(tokens)?;
-                    children.push(child);
+                    phrase.push(child);
                 }
                 Token::LeftBrace => {
                     let child = parse_container(tokens)?;
-                    children.push(child);
+                    phrase.push(child);
                 }
                 Token::RightBrace => {
-                    return Ok(Node::Container(children))
+                    if !phrase.is_empty() {
+                        verse.push(Phrase(phrase));
+                    }
+                    return Ok(Node::Container(Verse(verse)))
                 }
                 Token::Colon => {
-                    let head = cons_head(&mut children)?;
+                    let head = cons_head(&mut phrase)?;
                     let child = parse_cons(head, tokens)?;
-                    children.push(child);
+                    phrase.push(child);
                 }
                 Token::Comma | Token::RightParen => {
                     return Err(Error::UnexpectedToken(token))
@@ -110,43 +120,56 @@ fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
 }
 
 fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
-    let mut segments = vec![];
-    let mut segment = vec![];
+    let mut verses = vec![];
+    let mut verse = vec![];
+    let mut phrase = vec![];
     loop {
         if let Some(token) = tokens.pop_front() {
             match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) | Token::Newline => {
-                    segment.push(Node::Raw(token));
+                Token::Newline => {
+                    if !phrase.is_empty() {
+                        let phrase = mem::take(&mut phrase);
+                        verse.push(Phrase(phrase));
+                    }
+                }
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
+                    phrase.push(Node::Raw(token));
                 }
                 Token::LeftParen => {
                     let child = parse_list(tokens)?;
-                    segment.push(child);
+                    phrase.push(child);
                 }
                 Token::LeftBrace => {
                     let child = parse_container(tokens)?;
-                    segment.push(child);
+                    phrase.push(child);
                 }
                 Token::RightBrace => {
                     return Err(Error::UnexpectedToken(token))
                 }
                 Token::Comma => {
-                    if segment.is_empty() {
+                    if !phrase.is_empty() {
+                        let phrase = mem::take(&mut phrase);
+                        verse.push(Phrase(phrase));
+                    }
+                    if verse.is_empty() {
                         return Err(Error::EmptyListSegment)
                     }
-                    let segment = mem::take(&mut segment);
-                    segments.push(segment);
+                    let verse = mem::take(&mut verse);
+                    verses.push(Verse(verse));
                 }
                 Token::Colon => {
-                    let head = cons_head(&mut segment)?;
+                    let head = cons_head(&mut phrase)?;
                     let child = parse_cons(head, tokens)?;
-                    segment.push(child);
+                    phrase.push(child);
                 }
                 Token::RightParen => {
-                    if !segment.is_empty() {
-                        // the last segment may be empty
-                        segments.push(segment);
+                    if !phrase.is_empty() {
+                        verse.push(Phrase(phrase));
                     }
-                    return Ok(Node::List(segments))
+                    if !verse.is_empty() {
+                        verses.push(Verse(verse));
+                    }
+                    return Ok(Node::List(verses))
                 }
             }
         } else {
