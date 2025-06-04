@@ -1,8 +1,10 @@
 use std::io::BufReader;
+use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{tokenise, Error};
-use crate::token::Token;
-use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, LeftBrace, LeftParen, RightBrace, RightParen};
+use crate::token::{ListDelimiter, Token};
+use crate::token::ListDelimiter::Brace;
+use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, Left, Right};
 
 fn tok_ok(str: &str) -> Vec<Token> {
     tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap().into()
@@ -128,7 +130,7 @@ fn escape_during_whitespace_err() {
 fn left_and_right_paren() {
     let str = r#"(( ))"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![LeftParen, LeftParen, RightParen, RightParen, Newline], tokens);
+    assert_eq!(vec![Left(Paren), Left(Paren), Right(Paren), Right(Paren), Newline], tokens);
 }
 
 #[test]
@@ -136,14 +138,14 @@ fn left_and_right_paren_around_text() {
     let str = r#"("a string"
     "another string")"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![LeftParen, Text("a string".into()), Newline, Text("another string".into()), RightParen, Newline], tokens);
+    assert_eq!(vec![Left(Paren), Text("a string".into()), Newline, Text("another string".into()), Right(Paren), Newline], tokens);
 }
 
 #[test]
 fn left_and_right_brace() {
     let str = r#"{{ }}"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![LeftBrace, LeftBrace, RightBrace, RightBrace, Newline], tokens);
+    assert_eq!(vec![Left(Brace), Left(Brace), Right(Brace), Right(Brace), Newline], tokens);
 }
 
 #[test]
@@ -320,7 +322,7 @@ fn mixed_container_around_list() {
     let str = r#"{()}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        LeftBrace, LeftParen, RightParen, RightBrace, Newline
+        Left(Brace), Left(Paren), Right(Paren), Right(Brace), Newline
     ], tokens);
 }
 
@@ -330,7 +332,7 @@ fn mixed_container_nested() {
     }}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        LeftBrace, Ident("hello".into()), LeftBrace, Text("world".into()), Newline, RightBrace, RightBrace, Newline
+        Left(Brace), Ident("hello".into()), Left(Brace), Text("world".into()), Newline, Right(Brace), Right(Brace), Newline
     ], tokens);
 }
 
@@ -339,7 +341,7 @@ fn mixed_list_with_one_item_trailing_comma() {
     let str = r#"(1,)"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        LeftParen, Integer(1), Comma, RightParen, Newline
+        Left(Paren), Integer(1), Comma, Right(Paren), Newline
     ], tokens);
 }
 
@@ -348,7 +350,7 @@ fn mixed_list_with_many_items() {
     let str = r#"(1 2, 3)"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        LeftParen, Integer(1), Integer(2), Comma, Integer(3), RightParen, Newline
+        Left(Paren), Integer(1), Integer(2), Comma, Integer(3), Right(Paren), Newline
     ], tokens);
 }
 
@@ -375,6 +377,6 @@ fn mixed_cons_inside_container() {
     let str = r#"{1:2 3:4}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        LeftBrace, Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), RightBrace, Newline
+        Left(Brace), Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Right(Brace), Newline
     ], tokens);
 }

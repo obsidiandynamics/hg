@@ -3,7 +3,7 @@ use std::io;
 use std::io::{BufRead, BufReader, Read};
 use std::num::ParseIntError;
 use std::str::FromStr;
-use crate::token::{Location, Token};
+use crate::token::{ListDelimiter, Location, Token};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -78,16 +78,22 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<VecDeque<Token>, Er
                                 tokens.push_back(Token::Newline);
                             }
                             '(' => {
-                                tokens.push_back(Token::LeftParen);
+                                tokens.push_back(Token::Left(ListDelimiter::Paren));
                             }
                             ')' => {
-                                tokens.push_back(Token::RightParen);
+                                tokens.push_back(Token::Right(ListDelimiter::Paren));
                             }
                             '{' => {
-                                tokens.push_back(Token::LeftBrace);
+                                tokens.push_back(Token::Left(ListDelimiter::Brace));
                             }
                             '}' => {
-                                tokens.push_back(Token::RightBrace);
+                                tokens.push_back(Token::Right(ListDelimiter::Brace));
+                            }
+                            '[' => {
+                                tokens.push_back(Token::Left(ListDelimiter::Bracket));
+                            }
+                            ']' => {
+                                tokens.push_back(Token::Right(ListDelimiter::Bracket));
                             }
                             '-' => {
                                 tokens.push_back(Token::Dash);

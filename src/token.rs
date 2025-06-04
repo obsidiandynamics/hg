@@ -7,15 +7,21 @@ pub enum Token {
     Integer(u128),
     Decimal(u128, u128, u8), // (whole part, fractional part, scale)
     Boolean(bool),
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
+    Left(ListDelimiter),
+    Right(ListDelimiter),
     Dash,
     Colon,
     Comma,
     Ident(String),
     Newline,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ListDelimiter {
+    Paren,
+    Brace,
+    Bracket,
+    Angle
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]

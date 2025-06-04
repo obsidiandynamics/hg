@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::mem;
 use thiserror::Error;
-use crate::token::Token;
+use crate::token::{ListDelimiter, Token};
 use crate::tree::{Node, Phrase, Verse};
 
 #[derive(Debug, Error)]
@@ -24,8 +24,8 @@ pub enum Error {
     #[error("unexpected token {0:?}")]
     UnexpectedToken(Token),
 
-    #[error("empty list segment")]
-    EmptyListSegment,
+    #[error("empty verse")]
+    EmptyVerse,
 
     #[error("empty cons segment")]
     EmptyConsSegment,
@@ -45,12 +45,8 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
             Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                 phrase.push(Node::Raw(token));
             }
-            Token::LeftParen => {
-                let child = parse_list(&mut tokens)?;
-                phrase.push(child);
-            }
-            Token::LeftBrace => {
-                let child = parse_container(&mut tokens)?;
+            Token::Left(delimiter) => {
+                let child = parse_list(delimiter, &mut tokens)?;
                 phrase.push(child);
             }
             Token::Colon => {
@@ -62,7 +58,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
                 let child = parse_prefix(token, &mut tokens)?;
                 phrase.push(child);
             }
-            Token::Comma | Token::RightParen | Token::RightBrace => {
+            Token::Comma | Token::Right(_) => {
                 return Err(Error::UnexpectedToken(token))
             }
         }
@@ -75,51 +71,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
     }
 }
 
-fn parse_container(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
-    let mut verse = vec![];
-    let mut phrase = vec![];
-    loop {
-        if let Some(token) = tokens.pop_front() {
-            match token {
-                Token::Newline => {
-                    if !phrase.is_empty() {
-                        let phrase = mem::take(&mut phrase);
-                        verse.push(Phrase(phrase));
-                    }
-                }
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
-                    phrase.push(Node::Raw(token));
-                }
-                Token::LeftParen => {
-                    let child = parse_list(tokens)?;
-                    phrase.push(child);
-                }
-                Token::LeftBrace => {
-                    let child = parse_container(tokens)?;
-                    phrase.push(child);
-                }
-                Token::RightBrace => {
-                    if !phrase.is_empty() {
-                        verse.push(Phrase(phrase));
-                    }
-                    return Ok(Node::Container(Verse(verse)))
-                }
-                Token::Colon => {
-                    let head = cons_head(&mut phrase)?;
-                    let child = parse_cons(head, tokens)?;
-                    phrase.push(child);
-                }
-                Token::Comma | Token::RightParen => {
-                    return Err(Error::UnexpectedToken(token))
-                }
-            }
-        } else {
-            return Err(Error::UnterminatedContainer)
-        }
-    }
-}
-
-fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
+fn parse_list(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     let mut verses = vec![];
     let mut verse = vec![];
     let mut phrase = vec![];
@@ -135,16 +87,9 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
                     phrase.push(Node::Raw(token));
                 }
-                Token::LeftParen => {
-                    let child = parse_list(tokens)?;
+                Token::Left(delimiter) => {
+                    let child = parse_list(delimiter, tokens)?;
                     phrase.push(child);
-                }
-                Token::LeftBrace => {
-                    let child = parse_container(tokens)?;
-                    phrase.push(child);
-                }
-                Token::RightBrace => {
-                    return Err(Error::UnexpectedToken(token))
                 }
                 Token::Comma => {
                     if !phrase.is_empty() {
@@ -152,7 +97,7 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                         verse.push(Phrase(phrase));
                     }
                     if verse.is_empty() {
-                        return Err(Error::EmptyListSegment)
+                        return Err(Error::EmptyVerse)
                     }
                     let verse = mem::take(&mut verse);
                     verses.push(Verse(verse));
@@ -162,14 +107,18 @@ fn parse_list(tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                     let child = parse_cons(head, tokens)?;
                     phrase.push(child);
                 }
-                Token::RightParen => {
-                    if !phrase.is_empty() {
-                        verse.push(Phrase(phrase));
+                Token::Right(right_delimiter) => {
+                    return if left_delimiter == right_delimiter {
+                        if !phrase.is_empty() {
+                            verse.push(Phrase(phrase));
+                        }
+                        if !verse.is_empty() {
+                            verses.push(Verse(verse));
+                        }
+                        Ok(Node::List(verses))
+                    } else {
+                        Err(Error::UnexpectedToken(Token::Right(right_delimiter)))
                     }
-                    if !verse.is_empty() {
-                        verses.push(Verse(verse));
-                    }
-                    return Ok(Node::List(verses))
                 }
             }
         } else {
@@ -194,15 +143,11 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
                     tail.push(Node::Raw(token))
                 }
-                Token::LeftParen => {
-                    let child = parse_list(tokens)?;
+                Token::Left(delimiter) => {
+                    let child = parse_list(delimiter, tokens)?;
                     tail.push(child);
                 }
-                Token::LeftBrace => {
-                    let child = parse_container(tokens)?;
-                    tail.push(child);
-                }
-                Token::RightBrace | Token::RightParen | Token::Comma | Token::Newline => {
+                Token::Right(_) | Token::Comma | Token::Newline => {
                     tokens.push_front(token); // restore token for the parent parser
                     return Ok(Node::Cons(Box::new(head), Phrase(tail)))
                 }
@@ -229,15 +174,11 @@ fn parse_prefix(symbol: Token, tokens: &mut VecDeque<Token>) -> Result<Node, Err
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     Ok(Node::Prefix(symbol, Box::new(Node::Raw(token))))
                 }
-                Token::LeftParen => {
-                    let child = parse_list(tokens)?;
+                Token::Left(delimiter) => {
+                    let child = parse_list(delimiter, tokens)?;
                     Ok(Node::Prefix(symbol, Box::new(child)))
                 }
-                Token::LeftBrace => {
-                    let child = parse_container(tokens)?;
-                    Ok(Node::Prefix(symbol, Box::new(child)))
-                }
-                Token::Newline | Token::RightBrace | Token::RightParen | Token::Comma | Token::Colon | Token::Dash => {
+                Token::Newline | Token::Right(_) | Token::Comma | Token::Colon | Token::Dash => {
                     Err(Error::UnexpectedToken(token))
                 }
             }

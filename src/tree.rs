@@ -4,7 +4,6 @@ use crate::token::Token;
 pub enum Node {
     Raw(Token),
     List(Vec<Verse>),
-    Container(Verse),
     Cons(Box<Node>, Phrase),
     Prefix(Token, Box<Node>)
 }
