@@ -57,7 +57,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<VecDeque<Token>, Er
             "\n".chars()
         };
 
-        println!("line {}: '{line}'", location.line);
+        //println!("line {}: '{line}'", location.line);
         for char in chars {
             location.column += 1;
             'matcher: loop {

@@ -118,7 +118,7 @@ fn multilevel_json() {
             {
                 "id": 2,
                 "details": {"name": "Max Payne", "age": 39, "dogOwner": false}
-            },
+            }
         ]
     }"#;
     let tokens = tok_ok(str);
