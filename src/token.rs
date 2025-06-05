@@ -24,11 +24,19 @@ pub enum ListDelimiter {
     Angle
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Location {
     pub line: u32,
     pub column: u32
 }
+
+// impl Location {
+//     #[inline(always)]
+//     pub fn next_line(&mut self) {
+//         self.line += 1;
+//         self.column = 0;
+//     }
+// }
 
 impl Display for Location {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -1,3 +1,4 @@
+pub mod newline_terminated;
 pub mod lexer;
 pub mod parser;
 pub mod token;
