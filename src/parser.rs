@@ -71,6 +71,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
     }
 }
 
+#[inline]
 fn parse_list(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     let mut verses = vec![];
     let mut verse = vec![];
@@ -131,6 +132,7 @@ fn parse_list(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token>) -> Re
     }
 }
 
+#[inline]
 fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
     if !nodes.is_empty() {
         Ok(nodes.remove(nodes.len() - 1))
@@ -139,6 +141,7 @@ fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
     }
 }
 
+#[inline]
 fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     let mut tail = vec![];
     loop {
@@ -175,6 +178,7 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     }
 }
 
+#[inline]
 fn parse_prefix(symbol: Token, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     match tokens.pop_front() {
         Some(token) => {

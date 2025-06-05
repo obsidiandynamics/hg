@@ -24,8 +24,17 @@ fn criterion_benchmark(c: &mut Criterion) {
             }
         ]
     }"#;
+
+    c.bench_function("cri_json_lexer", |b| {
+        b.iter_batched(|| {
+            BufReader::with_capacity(1_000, str.as_bytes())
+        }, |reader| {
+            let tokens = tokenise(reader).unwrap();
+            tokens
+        }, BatchSize::LargeInput)
+    });
     
-    c.bench_function("cri_json", |b| {
+    c.bench_function("cri_json_lexer_parser", |b| {
         b.iter_batched(|| {
             BufReader::with_capacity(1_000, str.as_bytes())
         }, |reader| {
