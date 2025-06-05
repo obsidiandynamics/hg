@@ -84,11 +84,15 @@ fn parse_list(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token>) -> Re
                         verse.push(Phrase(phrase));
                     }
                 }
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     phrase.push(Node::Raw(token));
                 }
                 Token::Left(delimiter) => {
                     let child = parse_list(delimiter, tokens)?;
+                    phrase.push(child);
+                }
+                Token::Dash => {
+                    let child = parse_prefix(token, tokens)?;
                     phrase.push(child);
                 }
                 Token::Comma => {
@@ -140,11 +144,15 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
     loop {
         if let Some(token) = tokens.pop_front() {
             match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Dash | Token::Ident(_) => {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     tail.push(Node::Raw(token))
                 }
                 Token::Left(delimiter) => {
                     let child = parse_list(delimiter, tokens)?;
+                    tail.push(child);
+                }
+                Token::Dash => {
+                    let child = parse_prefix(token, tokens)?;
                     tail.push(child);
                 }
                 Token::Right(_) | Token::Comma | Token::Newline => {
