@@ -467,6 +467,43 @@ fn prefix_with_list() {
 }
 
 #[test]
+fn prefix_inside_of_list() {
+    let verse = parse_ok(vec![Left(Paren), Dash, Integer(42), Right(Paren), Newline]);
+    assert_eq!(verse![
+        phrase![
+            List(vec![
+                verse![
+                    phrase![
+                        Prefix(
+                            Dash,
+                            Box::new(Raw(Integer(42))),
+                        )
+                    ]
+                ]
+            ])
+        ]
+    ], verse);
+}
+
+#[test]
+fn prefix_inside_of_cons() {
+    let verse = parse_ok(vec![Text("key".into()), Colon, Dash, Integer(42), Newline]);
+    assert_eq!(verse![
+        phrase![
+            Cons(
+                Box::new(Raw(Text("key".into()))),
+                phrase![                 
+                    Prefix(
+                        Dash,
+                        Box::new(Raw(Integer(42))),
+                    )
+                ]
+            )
+        ]
+    ], verse);
+}
+
+#[test]
 fn prefix_unterminated_err() {
     let err = parse_err(vec![Dash]);
     assert_eq!("unterminated prefix", err.to_string());

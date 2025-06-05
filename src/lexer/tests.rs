@@ -304,6 +304,13 @@ fn boolean() {
 }
 
 #[test]
+fn boolean_comma_terminated() {
+    let str = r#"true false,"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Boolean(true), Boolean(false), Comma, Newline], tokens);
+}
+
+#[test]
 fn mixed_flat_sequence_of_tokens() {
     let str = r#"hello "world"
     42"#;
