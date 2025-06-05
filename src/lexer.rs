@@ -259,7 +259,7 @@ pub fn tokenise<R: Read>(mut reader: BufReader<R>) -> Result<VecDeque<Token>, Er
                     }
                     Mode::Ident => {
                         match char {
-                            ')' | '}' | ':' | '-' | '\n' | '\t' | '\r' | ' ' => {
+                            ')' | '}' | ':' | '-'  | ',' | '\n' | '\t' | '\r' | ' ' => {
                                 match token.as_str() {
                                     "true" => {
                                         tokens.push_back(Token::Boolean(true));
