@@ -18,43 +18,43 @@ fn string(value: &str) -> Node {
     Raw(Text(value.into()))
 }
 
-fn integer(value: u128) -> Node {
+fn integer(value: u128) -> Node<'static> {
     Raw(Integer(value))
 }
 
-fn decimal(whole: u128, fractional: u128, scale: u8) -> Node {
+fn decimal(whole: u128, fractional: u128, scale: u8) -> Node<'static> {
     Raw(Decimal(whole, fractional, scale))
 }
 
-fn boolean(value: bool) -> Node {
+fn boolean(value: bool) -> Node<'static> {
     Raw(Boolean(value))
 }
 
-fn null() -> Node {
+fn null() -> Node<'static> {
     Raw(Ident("null".into()))
 }
 
-fn negative(value: impl Into<Node>) -> Node {
+fn negative(value: impl Into<Node<'static>>) -> Node<'static> {
     Prefix(Dash, Box::new(value.into()))
 }
 
-fn key_value(key: &str, value: Node) -> Node {
+fn key_value(key: &'static str, value: Node<'static>) -> Node<'static> {
     Cons(
         Box::new(Raw(Text(key.into()))),
         phrase![value]
     )
 }
 
-struct ArrayBuilder(Vec<Node>);
+struct ArrayBuilder(Vec<Node<'static>>);
 
 impl ArrayBuilder {
-    fn with(mut self, element: impl Into<Node>) -> Self {
+    fn with(mut self, element: impl Into<Node<'static>>) -> Self {
         self.0.push(element.into());
         self
     }
 }
 
-impl From<ArrayBuilder> for Node {
+impl From<ArrayBuilder> for Node<'static> {
     fn from(array_builder: ArrayBuilder) -> Self {
         let verses = array_builder.0.into_iter().map(|element| verse![phrase![element]]).collect();
         List(verses)
@@ -65,7 +65,7 @@ fn array() -> ArrayBuilder {
     ArrayBuilder(vec![])
 }
 
-struct ObjectBuilder(Vec<(&'static str, Node)>);
+struct ObjectBuilder(Vec<(&'static str, Node<'static>)>);
 
 impl ObjectBuilder {
     fn key(self, key: &'static str) -> ObjectKeyValueBuilder {
@@ -73,7 +73,7 @@ impl ObjectBuilder {
     }
 }
 
-impl From<ObjectBuilder> for Node {
+impl From<ObjectBuilder> for Node<'static> {
     fn from(object_builder: ObjectBuilder) -> Self {
         let verses = object_builder.0.into_iter().map(|(key, value)| verse![phrase![key_value(key, value)]]).collect();
         List(verses)
@@ -87,14 +87,14 @@ fn object() -> ObjectBuilder {
 struct ObjectKeyValueBuilder(ObjectBuilder, &'static str);
 
 impl ObjectKeyValueBuilder {
-    fn value(self, value: impl Into<Node>) -> ObjectBuilder {
+    fn value(self, value: impl Into<Node<'static>>) -> ObjectBuilder {
         let (mut object_builder, key) = (self.0, self.1);
         object_builder.0.push((key, value.into()));
         object_builder
     }
 }
 
-fn root(node: impl Into<Node>) -> Verse {
+fn root(node: impl Into<Node<'static>>) -> Verse<'static> {
     verse![phrase![node.into()]]
 }
 

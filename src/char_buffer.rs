@@ -24,7 +24,7 @@ impl CharBuffer {
             Mode::Copy => self.copy.len()
         }
     }
-    
+
     #[inline]
     pub fn push(&mut self, offset: usize, char: char) {
         match self.mode {

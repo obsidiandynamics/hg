@@ -1,8 +1,9 @@
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Token {
-    Text(String),
+pub enum Token<'a> {
+    Text(Cow<'a, str>),
     Character(char),
     Integer(u128),
     Decimal(u128, u128, u8), // (whole part, fractional part, scale)
@@ -12,7 +13,7 @@ pub enum Token {
     Dash,
     Colon,
     Comma,
-    Ident(String),
+    Ident(Cow<'a, str>),
     Newline,
 }
 
@@ -29,14 +30,6 @@ pub struct Location {
     pub line: u32,
     pub column: u32
 }
-
-// impl Location {
-//     #[inline(always)]
-//     pub fn next_line(&mut self) {
-//         self.line += 1;
-//         self.column = 0;
-//     }
-// }
 
 impl Display for Location {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

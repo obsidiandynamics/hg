@@ -118,7 +118,7 @@ pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
                             mode = Mode::TextEscape;
                         }
                         '"' => {
-                            tokens.push_back(Token::Text(token.string(bytes).to_string())); //TODO
+                            tokens.push_back(Token::Text(token.string(bytes)));
                             token.clear();
                             mode = Mode::Whitespace;
                         }
@@ -272,7 +272,7 @@ pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
                                     tokens.push_back(Token::Boolean(false));
                                 }
                                 _ => {
-                                    tokens.push_back(Token::Ident(str.to_string())); //TODO
+                                    tokens.push_back(Token::Ident(token.string(bytes)));
                                 }
                             }
                             token.clear();

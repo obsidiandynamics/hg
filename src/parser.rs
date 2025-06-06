@@ -5,7 +5,7 @@ use crate::token::{ListDelimiter, Token};
 use crate::tree::{Node, Phrase, Verse};
 
 #[derive(Debug, Error)]
-pub enum Error {
+pub enum Error<'a> {
     #[error("unterminated container")]
     UnterminatedContainer,
     
@@ -22,7 +22,7 @@ pub enum Error {
     UnterminatedPhrase,
 
     #[error("unexpected token {0:?}")]
-    UnexpectedToken(Token),
+    UnexpectedToken(Token<'a>),
 
     #[error("empty verse")]
     EmptyVerse,
@@ -72,7 +72,7 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
 }
 
 #[inline]
-fn parse_list(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
+fn parse_list<'a>(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token<'a>>) -> Result<Node<'a>, Error<'a>> {
     let mut verses = vec![];
     let mut verse = vec![];
     let mut phrase = vec![];
@@ -133,7 +133,7 @@ fn parse_list(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token>) -> Re
 }
 
 #[inline]
-fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
+fn cons_head<'a>(nodes: &mut Vec<Node<'a>>) -> Result<Node<'a>, Error<'a>> {
     if !nodes.is_empty() {
         Ok(nodes.remove(nodes.len() - 1))
     } else {
@@ -142,7 +142,7 @@ fn cons_head(nodes: &mut Vec<Node>) -> Result<Node, Error> {
 }
 
 #[inline]
-fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
+fn parse_cons<'a>(head: Node<'a>, tokens: &mut VecDeque<Token<'a>>) -> Result<Node<'a>, Error<'a>> {
     let mut tail = vec![];
     loop {
         if let Some(token) = tokens.pop_front() {
@@ -179,7 +179,7 @@ fn parse_cons(head: Node, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
 }
 
 #[inline]
-fn parse_prefix(symbol: Token, tokens: &mut VecDeque<Token>) -> Result<Node, Error> {
+fn parse_prefix<'a>(symbol: Token<'a>, tokens: &mut VecDeque<Token<'a>>) -> Result<Node<'a>, Error<'a>> {
     match tokens.pop_front() {
         Some(token) => {
             match token {

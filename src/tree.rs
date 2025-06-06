@@ -1,27 +1,27 @@
 use crate::token::Token;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Node {
-    Raw(Token),
-    List(Vec<Verse>),
-    Cons(Box<Node>, Phrase),
-    Prefix(Token, Box<Node>)
+pub enum Node<'a> {
+    Raw(Token<'a>),
+    List(Vec<Verse<'a>>),
+    Cons(Box<Node<'a>>, Phrase<'a>),
+    Prefix(Token<'a>, Box<Node<'a>>)
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Phrase(pub Vec<Node>);
+pub struct Phrase<'a>(pub Vec<Node<'a>>);
 
-impl From<Phrase> for Vec<Node> {
-    fn from(phrase: Phrase) -> Self {
+impl<'a> From<Phrase<'a>> for Vec<Node<'a>> {
+    fn from(phrase: Phrase<'a>) -> Self {
         phrase.0
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Verse(pub Vec<Phrase>);
+pub struct Verse<'a>(pub Vec<Phrase<'a>>);
 
-impl From<Verse> for Vec<Phrase> {
-    fn from(verse: Verse) -> Self {
+impl<'a> From<Verse<'a>> for Vec<Phrase<'a>> {
+    fn from(verse: Verse<'a>) -> Self {
         verse.0
     }
 }
