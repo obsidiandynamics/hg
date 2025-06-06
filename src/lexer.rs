@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use crate::char_buffer::CharBuffer;
 use crate::newline_terminated_chars::NewlineTerminatedChars;
 use crate::token::{ListDelimiter, Location, Token};
@@ -7,7 +8,7 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum Error<'a> {
     #[error("i/o error {0}")]
     Io(#[from] io::Error),
 
@@ -21,10 +22,10 @@ pub enum Error {
     UnknownEscapeSequence(char, Location),
 
     #[error("unparsable integer {0} ({1}) at {2}")]
-    UnparsableInteger(String, ParseIntError, Location),
+    UnparsableInteger(Cow<'a, str>, ParseIntError, Location),
 
     #[error("unparsable decimal {0}.{1} ({2}) at {3}")]
-    UnparsableDecimal(u128, String, ParseIntError, Location),
+    UnparsableDecimal(u128, Cow<'a, str>, ParseIntError, Location),
 
     #[error("empty character literal at {0}")]
     EmptyCharacterLiteral(Location),
@@ -213,7 +214,7 @@ pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
                                     token.clear()
                                 }
                                 Err(err) => {
-                                    return Err(Error::UnparsableInteger(str.to_string(), err, location))
+                                    return Err(Error::UnparsableInteger(token.string(bytes), err, location))
                                 }
                             }
                         }
@@ -227,7 +228,7 @@ pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
                                     continue 'matcher; // don't consume the char
                                 }
                                 Err(err) => {
-                                    return Err(Error::UnparsableInteger(str.to_string(), err, location))
+                                    return Err(Error::UnparsableInteger(token.string(bytes), err, location))
                                 }
                             }
                         }
@@ -251,7 +252,7 @@ pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
                                     continue 'matcher;  // don't consume the char
                                 }
                                 Err(err) => {
-                                    return Err(Error::UnparsableDecimal(whole, str.to_string(), err, location))
+                                    return Err(Error::UnparsableDecimal(whole, token.string(bytes), err, location))
                                 }
                             }
                         }
