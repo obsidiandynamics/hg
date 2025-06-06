@@ -1,6 +1,8 @@
+use std::borrow::Cow;
 use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{tokenise, Error};
+use crate::lexer::tests::Ownership::{Borrowed, NA, Owned};
 use crate::token::{ListDelimiter, Token};
 use crate::token::ListDelimiter::Brace;
 use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, Left, Right};
@@ -13,12 +15,31 @@ fn tok_err(str: &str) -> Error {
     tokenise(str).unwrap_err()
 }
 
+#[derive(Debug, PartialEq)]
+enum Ownership {
+    Owned,
+    Borrowed,
+    NA
+}
+
+fn is_owned(tokens: Vec<Token>) -> Vec<Ownership> {
+    tokens.iter().map(|token| {
+        match token {
+            Text(str) | Ident(str) => {
+                if matches!(str, Cow::Owned(_)) { Owned } else { Borrowed }
+            }
+            _ => NA,
+        }
+    }).collect()
+}
+
 #[test]
 fn text_unescaped() {
     let str = r#""hello world"
         "hi""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hello world".into()), Newline, Text("hi".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
 }
 
 #[test]
@@ -26,6 +47,7 @@ fn text_escaped_newline() {
     let str = r#""hel\nlo""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hel\nlo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
 }
 
 #[test]
@@ -33,6 +55,7 @@ fn text_escaped_carriage_return() {
     let str = r#""hel\rlo""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hel\rlo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
 }
 
 #[test]
@@ -40,6 +63,7 @@ fn text_escaped_tab() {
     let str = r#""hel\tlo""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hel\tlo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
 }
 
 #[test]
@@ -47,6 +71,7 @@ fn text_escaped_quote() {
     let str = r#""hel\"lo""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hel\"lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
 }
 
 #[test]
@@ -54,6 +79,7 @@ fn text_escaped_backslash() {
     let str = r#""hel\\lo""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hel\\lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
 }
 
 #[test]
@@ -286,6 +312,7 @@ fn ident() {
     third"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Ident("first".into()), Ident("second".into()), Newline, Ident("third".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
 }
 
 #[test]
@@ -293,6 +320,7 @@ fn ident_colon_terminated() {
     let str = r#"first:second"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Ident("first".into()), Colon, Ident("second".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
 }
 
 #[test]
