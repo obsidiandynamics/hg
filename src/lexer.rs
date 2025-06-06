@@ -1,10 +1,10 @@
+use crate::char_buffer::CharBuffer;
+use crate::newline_terminated_chars::NewlineTerminatedChars;
+use crate::token::{ListDelimiter, Location, Token};
 use std::collections::VecDeque;
 use std::io;
-use std::io::{BufRead, BufReader, Read};
 use std::num::ParseIntError;
 use std::str::FromStr;
-use crate::newline_terminated::NewlineTerminated;
-use crate::token::{ListDelimiter, Location, Token};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -41,43 +41,16 @@ enum Mode {
     Ident
 }
 
-#[derive(Default)]
-struct Buffer {
-    index: usize,
-    len: usize,
-}
-
-impl Buffer {
-    #[inline(always)]
-    fn push(&mut self, char: char) {
-        self.len += char.len_utf8();
-    }
-    
-    #[inline(always)]
-    fn clear(&mut self) {
-        self.index += self.len;
-        self.len = 0;
-    }
-    
-    #[inline(always)]
-    fn as_str_slice<'a>(&self, bytes: &'a [u8]) -> &'a str {
-        unsafe {
-            str::from_utf8_unchecked(&bytes[self.index..self.index + self.len])
-        }
-    }
-}
-
-pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
+pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
     let bytes = str.as_bytes();
-    let char_indexes = NewlineTerminated::new(str.char_indices());
+    let char_indexes = NewlineTerminatedChars::new(str.char_indices());
     
     let mut tokens = VecDeque::new();
-    let mut token = Buffer::default();
+    let mut token = CharBuffer::default();
     let mut mode = Mode::Whitespace;
     let mut location = Location { line: 1, column: 0 };
-    // loop {
-        //println!("line {}: '{line}'", location.line);
     for (index, char) in char_indexes {
+        //println!("{char} at index {index}");
         location.column += 1;
         'matcher: loop {
             match mode {
@@ -127,24 +100,25 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                         }
                         '0'..='9' => {
                             mode = Mode::Integer;
-                            token.push(char);
+                            token.push(index, char);
                         }
                         '.' => {
                             mode = Mode::Decimal(0);
                         }
                         _ => {
                             mode = Mode::Ident;
-                            token.push(char);
+                            token.push(index, char);
                         }
                     }
                 }
                 Mode::TextBody => {
                     match char {
                         '\\' => {
+                            token.copy(bytes);
                             mode = Mode::TextEscape;
                         }
                         '"' => {
-                            tokens.push_back(Token::Text(token.as_str_slice(bytes).to_string()));
+                            tokens.push_back(Token::Text(token.string(bytes).to_string())); //TODO
                             token.clear();
                             mode = Mode::Whitespace;
                         }
@@ -152,23 +126,23 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                             return Err(Error::UnterminatedLiteral(location))
                         }
                         _ => {
-                            token.push(char);
+                            token.push(index, char);
                         }
                     }
                 }
                 Mode::CharacterEscape | Mode::TextEscape => {
                     match char {
                         '\\' | '"' | '\'' => {
-                            token.push(char);
+                            token.push(0, char);
                         }
                         'n' => {
-                            token.push('\n');
+                            token.push(0, '\n');
                         }
                         'r' => {
-                            token.push('\r');
+                            token.push(0, '\r');
                         }
                         't' => {
-                            token.push('\t');
+                            token.push(0, '\t');
                         }
                         'x' => {
                             //TODO handle hex (e.g., \x7F)
@@ -199,9 +173,10 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                     match char {
                         '\\' => {
                             mode = Mode::CharacterEscape;
+                            token.copy(bytes);
                         }
                         '\'' => {
-                            let mut chars = token.chars();
+                            let mut chars = token.as_str(bytes).chars();
                             match chars.next() {
                                 None => {
                                     return Err(Error::EmptyCharacterLiteral(location))
@@ -218,7 +193,7 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                         }
                         _ => {
                             if token.is_empty() {
-                                token.push(char);
+                                token.push(index, char);
                             } else {
                                 return Err(Error::UnexpectedCharacter(char, location))
                             }
@@ -227,20 +202,24 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                 }
                 Mode::Integer => {
                     match char {
-                        '_' => {}
+                        '_' => {
+                            token.copy(bytes);
+                        }
                         '.' => {
-                            match u128::from_str(&token) {
+                            let str = token.as_str(bytes);
+                            match u128::from_str(str) {
                                 Ok(int) => {
                                     mode = Mode::Decimal(int);
                                     token.clear()
                                 }
                                 Err(err) => {
-                                    return Err(Error::UnparsableInteger(token.clone(), err, location))
+                                    return Err(Error::UnparsableInteger(str.to_string(), err, location))
                                 }
                             }
                         }
                         ')' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
-                            match u128::from_str(&token) {
+                            let str = token.as_str(bytes);
+                            match u128::from_str(str) {
                                 Ok(whole) => {
                                     tokens.push_back(Token::Integer(whole));
                                     token.clear();
@@ -248,20 +227,23 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                                     continue 'matcher; // don't consume the char
                                 }
                                 Err(err) => {
-                                    return Err(Error::UnparsableInteger(token.clone(), err, location))
+                                    return Err(Error::UnparsableInteger(str.to_string(), err, location))
                                 }
                             }
                         }
                         _ => {
-                            token.push(char);
+                            token.push(index, char);
                         }
                     }
                 }
                 Mode::Decimal(whole) => {
                     match char {
-                        '_' => {}
+                        '_' => {
+                            token.copy(bytes);
+                        }
                         ')' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
-                            match u128::from_str(&token) {
+                            let str = token.as_str(bytes);
+                            match u128::from_str(str) {
                                 Ok(fractional) => {
                                     tokens.push_back(Token::Decimal(whole, fractional, token.len().try_into().expect("fractional part is too long")));
                                     token.clear();
@@ -269,19 +251,20 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                                     continue 'matcher;  // don't consume the char
                                 }
                                 Err(err) => {
-                                    return Err(Error::UnparsableDecimal(whole, token.clone(), err, location))
+                                    return Err(Error::UnparsableDecimal(whole, str.to_string(), err, location))
                                 }
                             }
                         }
                         _ => {
-                            token.push(char)
+                            token.push(index, char);
                         }
                     }
                 }
                 Mode::Ident => {
                     match char {
                         ')' | '}' | ':' | '-'  | ',' | '\n' | '\t' | '\r' | ' ' => {
-                            match token.as_str() {
+                            let str = token.as_str(bytes);
+                            match str {
                                 "true" => {
                                     tokens.push_back(Token::Boolean(true));
                                 }
@@ -289,7 +272,7 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                                     tokens.push_back(Token::Boolean(false));
                                 }
                                 _ => {
-                                    tokens.push_back(Token::Ident(token.clone()));
+                                    tokens.push_back(Token::Ident(str.to_string())); //TODO
                                 }
                             }
                             token.clear();
@@ -297,7 +280,7 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
                             continue 'matcher;  // don't consume the char
                         }
                         _ => {
-                            token.push(char);
+                            token.push(index, char);
                         }
                     }
                 }
@@ -305,14 +288,6 @@ pub fn tokenise<R: Read>(str: &str) -> Result<VecDeque<Token>, Error> {
             break 'matcher;
         }
     }
-
-    //     if bytes == 0 {
-    //         break;
-    //     } else {
-    //         location.column = 0;
-    //         line.clear();
-    //     }
-    // }
     Ok(tokens)
 }
 

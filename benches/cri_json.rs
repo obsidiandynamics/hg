@@ -1,5 +1,4 @@
-use std::io::BufReader;
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use hg::lexer::tokenise;
 use hg::parser::parse;
 
@@ -26,22 +25,18 @@ fn criterion_benchmark(c: &mut Criterion) {
     }"#;
 
     c.bench_function("cri_json_lexer", |b| {
-        b.iter_batched(|| {
-            BufReader::with_capacity(1_000, str.as_bytes())
-        }, |reader| {
-            let tokens = tokenise(reader).unwrap();
+        b.iter(|| {
+            let tokens = tokenise(str).unwrap();
             tokens
-        }, BatchSize::LargeInput)
+        })
     });
     
     c.bench_function("cri_json_lexer_parser", |b| {
-        b.iter_batched(|| {
-            BufReader::with_capacity(1_000, str.as_bytes())
-        }, |reader| {
-            let tokens = tokenise(reader).unwrap();
+        b.iter(|| {
+            let tokens = tokenise(str).unwrap();
             let verse = parse(tokens).unwrap();
             verse
-        }, BatchSize::LargeInput)
+        })
     });
 }
 

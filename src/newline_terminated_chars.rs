@@ -1,11 +1,11 @@
 use std::str::CharIndices;
 
-pub struct NewlineTerminated<'a> {
+pub struct NewlineTerminatedChars<'a> {
     char_indices: CharIndices<'a>,
     prev_char: Option<(usize, char)>,
 }
 
-impl<'a> NewlineTerminated<'a> {
+impl<'a> NewlineTerminatedChars<'a> {
     #[inline]
     pub fn new(char_indices: CharIndices<'a>) -> Self {
         Self {
@@ -14,7 +14,7 @@ impl<'a> NewlineTerminated<'a> {
     }
 }
 
-impl Iterator for NewlineTerminated<'_> {
+impl Iterator for NewlineTerminatedChars<'_> {
     type Item = (usize, char);
 
     #[inline]
@@ -60,12 +60,12 @@ impl Iterator for NewlineTerminated<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::newline_terminated::NewlineTerminated;
+    use crate::newline_terminated_chars::NewlineTerminatedChars;
 
     #[test]
     fn empty() {
         let str = "";
-        let mut nt = NewlineTerminated::new(str.char_indices());
+        let mut nt = NewlineTerminatedChars::new(str.char_indices());
         assert_eq!(Some((0, '\n')), nt.next());
         assert_eq!(None, nt.next());
     }
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn ending_with_newline() {
         let str = "hiµ\n";
-        let mut nt = NewlineTerminated::new(str.char_indices());
+        let mut nt = NewlineTerminatedChars::new(str.char_indices());
         assert_eq!(Some((0, 'h')), nt.next());
         assert_eq!(Some((1, 'i')), nt.next());
         assert_eq!(Some((2, 'µ')), nt.next());
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn ending_with_extraneous_newline() {
         let str = "hiµ\n\n";
-        let mut nt = NewlineTerminated::new(str.char_indices());
+        let mut nt = NewlineTerminatedChars::new(str.char_indices());
         assert_eq!(Some((0, 'h')), nt.next());
         assert_eq!(Some((1, 'i')), nt.next());
         assert_eq!(Some((2, 'µ')), nt.next());
@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn ending_without_newline() {
         let str = "hiµ";
-        let mut nt = NewlineTerminated::new(str.char_indices());
+        let mut nt = NewlineTerminatedChars::new(str.char_indices());
         assert_eq!(Some((0, 'h')), nt.next());
         assert_eq!(Some((1, 'i')), nt.next());
         assert_eq!(Some((2, 'µ')), nt.next());

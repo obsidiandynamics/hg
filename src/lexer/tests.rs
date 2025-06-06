@@ -1,4 +1,3 @@
-use std::io::BufReader;
 use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{tokenise, Error};
@@ -7,11 +6,11 @@ use crate::token::ListDelimiter::Brace;
 use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, Left, Right};
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap().into()
+    tokenise(str).unwrap().into()
 }
 
 fn tok_err(str: &str) -> Error {
-    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap_err()
+    tokenise(str).unwrap_err()
 }
 
 #[test]

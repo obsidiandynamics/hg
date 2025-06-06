@@ -5,10 +5,9 @@ use hg::token::Token::{Boolean, Dash, Decimal, Ident, Integer, Text};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
 use hg::{phrase, verse};
-use std::io::BufReader;
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    tokenise(BufReader::with_capacity(10, str.as_bytes())).unwrap().into()
+    tokenise(str).unwrap().into()
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
