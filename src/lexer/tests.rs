@@ -1,18 +1,23 @@
 use std::borrow::Cow;
 use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
-use crate::lexer::{tokenise, Error};
+use crate::lexer::{Error, Tokeniser};
 use crate::lexer::tests::Ownership::{Borrowed, NA, Owned};
 use crate::token::{ListDelimiter, Token};
 use crate::token::ListDelimiter::Brace;
 use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, Left, Right};
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    tokenise(str).unwrap().into()
+    Tokeniser::new(str).map(Result::unwrap).collect()
 }
 
 fn tok_err(str: &str) -> Error {
-    tokenise(str).unwrap_err()
+     Tokeniser::new(str)
+        .map(Result::err)
+        .skip_while(Option::is_none)
+        .map(Option::unwrap)
+        .next()
+        .unwrap()
 }
 
 #[derive(Debug, PartialEq)]

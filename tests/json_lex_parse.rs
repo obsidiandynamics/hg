@@ -1,4 +1,4 @@
-use hg::lexer::tokenise;
+use hg::lexer::Tokeniser;
 use hg::parser::parse;
 use hg::token::Token;
 use hg::token::Token::{Boolean, Dash, Decimal, Ident, Integer, Text};
@@ -7,7 +7,7 @@ use hg::tree::{Node, Verse};
 use hg::{phrase, verse};
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    tokenise(str).unwrap().into()
+    Tokeniser::new(str).map(Result::unwrap).collect()
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
