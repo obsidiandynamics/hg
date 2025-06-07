@@ -61,21 +61,21 @@ impl Iterator for NewlineTerminatedChars<'_> {
 #[cfg(test)]
 mod tests {
     use crate::newline_terminated_chars::NewlineTerminatedChars;
-    
+
     #[test]
     fn size_hint() {
         let str = "hiµ\n";
         let nt = NewlineTerminatedChars::new(str.char_indices());
         assert_eq!((2, Some(5)), nt.size_hint());
     }
-    
+
     #[test]
     fn count() {
         let str = "hiµ\n";
         let nt = NewlineTerminatedChars::new(str.char_indices());
         assert_eq!(4, nt.count());
     }
-    
+
     #[test]
     fn last() {
         let str = "hiµ\n";

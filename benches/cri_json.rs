@@ -36,6 +36,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     bench_file(c, "canada");
     bench_file(c, "citm");
     bench_file(c, "small");
+    bench_file(c, "text-1kb");
     bench_file(c, "twitter");
 }
 

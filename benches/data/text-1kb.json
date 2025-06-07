@@ -1,0 +1,52 @@
+{
+  "key1": "value1",
+  "key2": "value2",
+  "key3": "value3",
+  "key4": "value4",
+  "key5": true,
+  "key6": null,
+  "emptyArray": [
+  ],
+  "employees": [
+    {
+      "id": "a1",
+      "details": {"name": "John Wick", "dogOwner": true}
+    },
+    {
+      "id": "b2",
+      "details": {"name": "Max Payne", "dogOwner": false}
+    },
+    {
+      "id": "a1",
+      "details": {"name": "John Wick", "dogOwner": true}
+    },
+    {
+      "id": "b2",
+      "details": {"name": "Max Payne", "dogOwner": false}
+    },
+    {
+      "id": "a1",
+      "details": {"name": "John Wick", "dogOwner": true}
+    },
+    {
+      "id": "b2",
+      "details": {"name": "Max Payne", "dogOwner": false}
+    },
+    {
+      "id": "a1",
+      "details": {"name": "John Wick", "dogOwner": true}
+    },
+    {
+      "id": "b2",
+      "details": {"name": "Max Payne", "dogOwner": false}
+    },
+    {
+      "id": "a1",
+      "details": {"name": "John Wick", "dogOwner": true}
+    },
+    {
+      "id": "b2",
+      "details": {"name": "Max Payne", "dogOwner": false}
+    }
+  ]
+}

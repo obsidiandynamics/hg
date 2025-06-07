@@ -215,16 +215,16 @@ impl<'a> Iterator for Tokeniser<'a> {
                         }
                         '\'' => {
                             let mut chars = self.token.as_str(self.bytes).chars();
-                            match chars.next() {
+                            return match chars.next() {
                                 None => {
                                     self.error = true;
-                                    return Some(Err(Error::EmptyCharacterLiteral(self.location.clone())))
+                                    Some(Err(Error::EmptyCharacterLiteral(self.location.clone())))
                                 }
                                 Some(first_char) => {
                                     let token = Token::Character(first_char);
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
-                                    return Some(Ok(token))
+                                    Some(Ok(token))
                                 }
                             }
                         }
@@ -262,17 +262,17 @@ impl<'a> Iterator for Tokeniser<'a> {
                         }
                         ')' | ']' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
                             let str = self.token.as_str(self.bytes);
-                            match u128::from_str(str) {
+                            return match u128::from_str(str) {
                                 Ok(whole) => {
                                     let token = Token::Integer(whole);
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
                                     self.stashed_char = Some((index, char)); // don't consume the char
                                     self.location.column -= 1;
-                                    return Some(Ok(token));
+                                    Some(Ok(token))
                                 }
                                 Err(err) => {
-                                    return Some(Err(Error::UnparsableInteger(self.token.string(self.bytes), err, self.location.clone())))
+                                    Some(Err(Error::UnparsableInteger(self.token.string(self.bytes), err, self.location.clone())))
                                 }
                             }
                         }
@@ -288,17 +288,17 @@ impl<'a> Iterator for Tokeniser<'a> {
                         }
                         ')' | ']' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
                             let str = self.token.as_str(self.bytes);
-                            match u128::from_str(str) {
+                            return match u128::from_str(str) {
                                 Ok(fractional) => {
                                     let token = Token::Decimal(whole, fractional, self.token.len().try_into().expect("fractional part is too long"));
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
                                     self.stashed_char = Some((index, char)); // don't consume the char
                                     self.location.column -= 1;
-                                    return Some(Ok(token))
+                                    Some(Ok(token))
                                 }
                                 Err(err) => {
-                                    return Some(Err(Error::UnparsableDecimal(whole, self.token.string(self.bytes), err, self.location.clone())))
+                                    Some(Err(Error::UnparsableDecimal(whole, self.token.string(self.bytes), err, self.location.clone())))
                                 }
                             }
                         }
@@ -338,256 +338,6 @@ impl<'a> Iterator for Tokeniser<'a> {
         None
     }
 }
-
-// pub fn tokenise(str: &str) -> Result<VecDeque<Token>, Error> {
-//     let bytes = str.as_bytes();
-//     let char_indexes = NewlineTerminatedChars::new(str.char_indices());
-//     
-//     let mut tokens = VecDeque::new();
-//     let mut token = CharBuffer::default();
-//     let mut mode = Mode::Whitespace;
-//     let mut location = Location { line: 1, column: 0 };
-//     for (index, char) in char_indexes {
-//         //println!("{char} at index {index}");
-//         location.column += 1;
-//         'matcher: loop {
-//             match mode {
-//                 Mode::Whitespace => {
-//                     match char {
-//                         '\\' => {
-//                             return Err(Error::UnexpectedCharacter(char, location))
-//                         }
-//                         '"' => {
-//                             mode = Mode::TextBody;
-//                         }
-//                         '\'' => {
-//                             mode = Mode::CharacterBody;
-//                         }
-//                         '\t' | '\r' | ' ' => {}
-//                         '\n' => {
-//                             tokens.push_back(Token::Newline);
-//                             location.line += 1;
-//                             location.column = 1;
-//                         }
-//                         '(' => {
-//                             tokens.push_back(Token::Left(ListDelimiter::Paren));
-//                         }
-//                         ')' => {
-//                             tokens.push_back(Token::Right(ListDelimiter::Paren));
-//                         }
-//                         '{' => {
-//                             tokens.push_back(Token::Left(ListDelimiter::Brace));
-//                         }
-//                         '}' => {
-//                             tokens.push_back(Token::Right(ListDelimiter::Brace));
-//                         }
-//                         '[' => {
-//                             tokens.push_back(Token::Left(ListDelimiter::Bracket));
-//                         }
-//                         ']' => {
-//                             tokens.push_back(Token::Right(ListDelimiter::Bracket));
-//                         }
-//                         '-' => {
-//                             tokens.push_back(Token::Dash);
-//                         }
-//                         ':' => {
-//                             tokens.push_back(Token::Colon);
-//                         }
-//                         ',' => {
-//                             tokens.push_back(Token::Comma);
-//                         }
-//                         '0'..='9' => {
-//                             mode = Mode::Integer;
-//                             token.push(index, char);
-//                         }
-//                         '.' => {
-//                             mode = Mode::Decimal(0);
-//                         }
-//                         _ => {
-//                             mode = Mode::Ident;
-//                             token.push(index, char);
-//                         }
-//                     }
-//                 }
-//                 Mode::TextBody => {
-//                     match char {
-//                         '\\' => {
-//                             token.copy(bytes);
-//                             mode = Mode::TextEscape;
-//                         }
-//                         '"' => {
-//                             tokens.push_back(Token::Text(token.string(bytes)));
-//                             token.clear();
-//                             mode = Mode::Whitespace;
-//                         }
-//                         '\n' => {
-//                             return Err(Error::UnterminatedLiteral(location))
-//                         }
-//                         _ => {
-//                             token.push(index, char);
-//                         }
-//                     }
-//                 }
-//                 Mode::CharacterEscape | Mode::TextEscape => {
-//                     match char {
-//                         '\\' | '"' | '\'' => {
-//                             token.push(0, char);
-//                         }
-//                         'n' => {
-//                             token.push(0, '\n');
-//                         }
-//                         'r' => {
-//                             token.push(0, '\r');
-//                         }
-//                         't' => {
-//                             token.push(0, '\t');
-//                         }
-//                         'x' => {
-//                             //TODO handle hex (e.g., \x7F)
-//                             return Err(Error::UnknownEscapeSequence(char, location))
-//                         }
-//                         'u' => {
-//                             //TODO handle unicode (e.g., \u{7FFF})
-//                             return Err(Error::UnknownEscapeSequence(char, location))
-//                         }
-//                         _ => {
-//                             return Err(Error::UnknownEscapeSequence(char, location))
-//                         }
-//                     }
-//                     match mode {
-//                         Mode::TextEscape => {
-//                             mode = Mode::TextBody;
-//                         }
-//                         Mode::CharacterEscape => {
-//                             mode = Mode::CharacterBody;
-//                         }
-//                         _ => {
-//                             // by the encompassing pattern, mode must be one of the two variants above
-//                             unreachable!()
-//                         }
-//                     }
-//                 }
-//                 Mode::CharacterBody => {
-//                     match char {
-//                         '\\' => {
-//                             mode = Mode::CharacterEscape;
-//                             token.copy(bytes);
-//                         }
-//                         '\'' => {
-//                             let mut chars = token.as_str(bytes).chars();
-//                             match chars.next() {
-//                                 None => {
-//                                     return Err(Error::EmptyCharacterLiteral(location))
-//                                 }
-//                                 Some(first_char) => {
-//                                     tokens.push_back(Token::Character(first_char));
-//                                     token.clear();
-//                                     mode = Mode::Whitespace;
-//                                 }
-//                             }
-//                         }
-//                         '\n' => {
-//                             return Err(Error::UnterminatedLiteral(location))
-//                         }
-//                         _ => {
-//                             if token.is_empty() {
-//                                 token.push(index, char);
-//                             } else {
-//                                 return Err(Error::UnexpectedCharacter(char, location))
-//                             }
-//                         }
-//                     }
-//                 }
-//                 Mode::Integer => {
-//                     match char {
-//                         '_' => {
-//                             token.copy(bytes);
-//                         }
-//                         '.' => {
-//                             let str = token.as_str(bytes);
-//                             match u128::from_str(str) {
-//                                 Ok(int) => {
-//                                     mode = Mode::Decimal(int);
-//                                     token.clear()
-//                                 }
-//                                 Err(err) => {
-//                                     return Err(Error::UnparsableInteger(token.string(bytes), err, location))
-//                                 }
-//                             }
-//                         }
-//                         ')' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
-//                             let str = token.as_str(bytes);
-//                             match u128::from_str(str) {
-//                                 Ok(whole) => {
-//                                     tokens.push_back(Token::Integer(whole));
-//                                     token.clear();
-//                                     mode = Mode::Whitespace;
-//                                     continue 'matcher; // don't consume the char
-//                                 }
-//                                 Err(err) => {
-//                                     return Err(Error::UnparsableInteger(token.string(bytes), err, location))
-//                                 }
-//                             }
-//                         }
-//                         _ => {
-//                             token.push(index, char);
-//                         }
-//                     }
-//                 }
-//                 Mode::Decimal(whole) => {
-//                     match char {
-//                         '_' => {
-//                             token.copy(bytes);
-//                         }
-//                         ')' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
-//                             let str = token.as_str(bytes);
-//                             match u128::from_str(str) {
-//                                 Ok(fractional) => {
-//                                     tokens.push_back(Token::Decimal(whole, fractional, token.len().try_into().expect("fractional part is too long")));
-//                                     token.clear();
-//                                     mode = Mode::Whitespace;
-//                                     continue 'matcher;  // don't consume the char
-//                                 }
-//                                 Err(err) => {
-//                                     return Err(Error::UnparsableDecimal(whole, token.string(bytes), err, location))
-//                                 }
-//                             }
-//                         }
-//                         _ => {
-//                             token.push(index, char);
-//                         }
-//                     }
-//                 }
-//                 Mode::Ident => {
-//                     match char {
-//                         ')' | '}' | ':' | '-'  | ',' | '\n' | '\t' | '\r' | ' ' => {
-//                             let str = token.as_str(bytes);
-//                             match str {
-//                                 "true" => {
-//                                     tokens.push_back(Token::Boolean(true));
-//                                 }
-//                                 "false" => {
-//                                     tokens.push_back(Token::Boolean(false));
-//                                 }
-//                                 _ => {
-//                                     tokens.push_back(Token::Ident(token.string(bytes)));
-//                                 }
-//                             }
-//                             token.clear();
-//                             mode = Mode::Whitespace;
-//                             continue 'matcher;  // don't consume the char
-//                         }
-//                         _ => {
-//                             token.push(index, char);
-//                         }
-//                     }
-//                 }
-//             }
-//             break 'matcher;
-//         }
-//     }
-//     Ok(tokens)
-// }
 
 #[cfg(test)]
 mod tests;
