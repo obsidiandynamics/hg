@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use crate::graphemes::Grapheme;
 
 #[derive(Default, Debug)]
 pub struct CharBuffer {
@@ -38,6 +39,23 @@ impl CharBuffer {
             }
             Mode::Copy => {
                 self.copy.push(char);
+            }
+        }
+    }
+
+    #[inline]
+    pub fn push_grapheme(&mut self, offset: usize, grapheme: Grapheme) {
+        match self.mode {
+            Mode::Slice => {
+                if self.len == 0 {
+                    self.offset = offset;
+                } else {
+                    debug_assert_eq!(self.offset + self.len, offset, "wrong character offset: expected {}, got {}", self.offset + self.len, offset);
+                }
+                self.len += grapheme.len_utf8();
+            }
+            Mode::Copy => {
+                self.copy.push(char::from(grapheme));
             }
         }
     }

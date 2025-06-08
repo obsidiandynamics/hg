@@ -1,28 +1,46 @@
 use std::slice;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Grapheme([u8; 4]);
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct Grapheme(pub [u8; 4]);
 
 impl Grapheme {
     #[inline]
-    pub fn len(&self) -> usize {
-        if self.0[3] != 0 {
-            4
-        } else if self.0[2] != 0 {
-            3
-        } else if self.0[1] != 0 {
-            2
-        } else {
+    pub fn len_utf8(&self) -> usize {
+        if self.0[1] == 0 {
             1
+        } else if self.0[2] == 0 {
+            2
+        } else if self.0[3] == 0 {
+            3
+        } else {
+            4
         }
+        // if self.0[3] != 0 {
+        //     4
+        // } else if self.0[2] != 0 {
+        //     3
+        // } else if self.0[1] != 0 {
+        //     2
+        // } else {
+        //     1
+        // }
     }
 }
 
 impl From<Grapheme> for char {
     #[inline]
     fn from(grapheme: Grapheme) -> Self {
-        let str = unsafe { str::from_utf8_unchecked(&grapheme.0[..4]) };
-        str.chars().next().unwrap()
+        let str = unsafe { str::from_utf8_unchecked(&grapheme.0[..grapheme.len_utf8()]) };
+        unsafe { str.chars().next().unwrap_unchecked() }
+    }
+}
+
+impl From<char> for Grapheme {
+    #[inline]
+    fn from(char: char) -> Self {
+        let mut bytes = [0u8; 4];
+        char.encode_utf8(&mut bytes);
+        Grapheme(bytes)
     }
 }
 
@@ -131,38 +149,60 @@ impl<'a> Iterator for Graphemes<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::graphemes::Graphemes;
+    use crate::graphemes::{Grapheme, Graphemes};
 
-    fn to_graphemes(str: &str) -> Vec<char> {
+    fn to_chars(str: &str) -> Vec<char> {
         Graphemes::from(str).map(char::from).collect()
+    }
+
+    fn to_lens(str: &str) -> Vec<usize> {
+        Graphemes::from(str).map(|grapheme| grapheme.len_utf8()).collect()
     }
 
     #[test]
     fn ascii() {
         let str = "hello\n";
-        let graphemes = to_graphemes(str);
+        let graphemes = to_chars(str);
         assert_eq!(vec!['h', 'e', 'l', 'l', 'o', '\n'], graphemes);
+        let lens = to_lens(str);
+        assert_eq!(vec![1, 1, 1, 1, 1, 1], lens);
     }
 
     #[test]
     fn ascii_with_2byte() {
         let str = "aµ";
-        let graphemes = to_graphemes(str);
+        let graphemes = to_chars(str);
         assert_eq!(vec!['a', 'µ'], graphemes);
+        let lens = to_lens(str);
+        assert_eq!(vec![1, 2], lens);
     }
 
     #[test]
     fn ascii_with_3byte() {
         let str = "aµℝ";
-        let graphemes = to_graphemes(str);
+        let graphemes = to_chars(str);
         assert_eq!(vec!['a', 'µ', 'ℝ'], graphemes);
+        let lens = to_lens(str);
+        assert_eq!(vec![1, 2, 3], lens);
     }
 
     #[test]
     fn ascii_with_4byte() {
         let str = "aµℝ💣";
-        let graphemes = to_graphemes(str);
+        let graphemes = to_chars(str);
         assert_eq!(vec!['a', 'µ', 'ℝ', '💣'], graphemes);
+        let lens = to_lens(str);
+        assert_eq!(vec![1, 2, 3, 4], lens);
+    }
+    
+    #[test]
+    fn conversion() {
+        let chars = vec!['a', 'µ', 'ℝ', '💣'];
+        for char in chars {
+            let grapheme = Grapheme::from(char);
+            let back_to_char = char::from(grapheme);
+            assert_eq!(char, back_to_char);
+        }
     }
 }
 
