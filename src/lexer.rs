@@ -85,57 +85,58 @@ impl<'a> Iterator for Tokeniser<'a> {
 
         while let Some((index, char)) = self.next_char() {
             self.location.column += 1;
+            let byte = char as u8;
             match self.mode {
                 Mode::Whitespace => {
-                    match char {
-                        '\\' => {
+                    match byte {
+                        b'\\' => {
                             self.error = true;
                             return Some(Err(Error::UnexpectedCharacter(char, self.location.clone())))
                         }
-                        '"' => {
+                        b'"' => {
                             self.mode = Mode::TextBody;
                         }
-                        '\'' => {
+                        b'\'' => {
                             self.mode = Mode::CharacterBody;
                         }
-                        '\t' | '\r' | ' ' => {}
-                        '\n' => {
+                        b'\t' | b'\r' | b' ' => {}
+                        b'\n' => {
                             self.location.line += 1;
                             self.location.column = 1;
                             return Some(Ok(Token::Newline))
                         }
-                        '(' => {
+                        b'(' => {
                             return Some(Ok(Token::Left(ListDelimiter::Paren)));
                         }
-                        ')' => {
+                        b')' => {
                             return Some(Ok(Token::Right(ListDelimiter::Paren)));
                         }
-                        '{' => {
+                        b'{' => {
                             return Some(Ok(Token::Left(ListDelimiter::Brace)));
                         }
-                        '}' => {
+                        b'}' => {
                             return Some(Ok(Token::Right(ListDelimiter::Brace)));
                         }
-                        '[' => {
+                        b'[' => {
                             return Some(Ok(Token::Left(ListDelimiter::Bracket)));
                         }
-                        ']' => {
+                        b']' => {
                             return Some(Ok(Token::Right(ListDelimiter::Bracket)));
                         }
-                        '-' => {
+                        b'-' => {
                             return Some(Ok(Token::Dash));
                         }
-                        ':' => {
+                        b':' => {
                             return Some(Ok(Token::Colon));
                         }
-                        ',' => {
+                        b',' => {
                             return Some(Ok(Token::Comma));
                         }
-                        '0'..='9' => {
+                        b'0'..=b'9' => {
                             self.mode = Mode::Integer;
                             self.token.push(index, char);
                         }
-                        '.' => {
+                        b'.' => {
                             self.mode = Mode::Decimal(0);
                         }
                         _ => {
@@ -145,18 +146,18 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::TextBody => {
-                    match char {
-                        '\\' => {
+                    match byte {
+                        b'\\' => {
                             self.token.copy(self.bytes);
                             self.mode = Mode::TextEscape;
                         }
-                        '"' => {
+                        b'"' => {
                             let token = Token::Text(self.token.string(self.bytes));
                             self.token.clear();
                             self.mode = Mode::Whitespace;
                             return Some(Ok(token))
                         }
-                        '\n' => {
+                        b'\n' => {
                             self.error = true;
                             return Some(Err(Error::UnterminatedLiteral(self.location.clone())))
                         }
@@ -166,25 +167,25 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::CharacterEscape | Mode::TextEscape => {
-                    match char {
-                        '\\' | '"' | '\'' => {
+                    match byte {
+                        b'\\' | b'"' | b'\'' => {
                             self.token.push(0, char);
                         }
-                        'n' => {
+                        b'n' => {
                             self.token.push(0, '\n');
                         }
-                        'r' => {
+                        b'r' => {
                             self.token.push(0, '\r');
                         }
-                        't' => {
+                        b't' => {
                             self.token.push(0, '\t');
                         }
-                        'x' => {
+                        b'x' => {
                             //TODO handle hex (e.g., \x7F)
                             self.error = true;
                             return Some(Err(Error::UnknownEscapeSequence(char, self.location.clone())))
                         }
-                        'u' => {
+                        b'u' => {
                             //TODO handle unicode (e.g., \u{7FFF})
                             self.error = true;
                             return Some(Err(Error::UnknownEscapeSequence(char, self.location.clone())))
@@ -208,12 +209,12 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::CharacterBody => {
-                    match char {
-                        '\\' => {
+                    match byte {
+                        b'\\' => {
                             self.mode = Mode::CharacterEscape;
                             self.token.copy(self.bytes);
                         }
-                        '\'' => {
+                        b'\'' => {
                             let mut chars = self.token.as_str(self.bytes).chars();
                             return match chars.next() {
                                 None => {
@@ -228,7 +229,7 @@ impl<'a> Iterator for Tokeniser<'a> {
                                 }
                             }
                         }
-                        '\n' => {
+                        b'\n' => {
                             self.error = true;
                             return Some(Err(Error::UnterminatedLiteral(self.location.clone())))
                         }
@@ -243,11 +244,11 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::Integer => {
-                    match char {
-                        '_' => {
+                    match byte {
+                        b'_' => {
                             self.token.copy(self.bytes);
                         }
-                        '.' => {
+                        b'.' => {
                             let str = self.token.as_str(self.bytes);
                             match u128::from_str(str) {
                                 Ok(int) => {
@@ -260,7 +261,7 @@ impl<'a> Iterator for Tokeniser<'a> {
                                 }
                             }
                         }
-                        ')' | ']' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
+                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
                             let str = self.token.as_str(self.bytes);
                             return match u128::from_str(str) {
                                 Ok(whole) => {
@@ -282,11 +283,11 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::Decimal(whole) => {
-                    match char {
-                        '_' => {
+                    match byte {
+                        b'_' => {
                             self.token.copy(self.bytes);
                         }
-                        ')' | ']' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
+                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
                             let str = self.token.as_str(self.bytes);
                             return match u128::from_str(str) {
                                 Ok(fractional) => {
@@ -308,8 +309,8 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::Ident => {
-                    match char {
-                        ')' | ']' | '}' | ':' | '-'  | ',' | '\n' | '\t' | '\r' | ' ' => {
+                    match byte {
+                        b')' | b']' | b'}' | b':' | b'-'  | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
                             let str = self.token.as_str(self.bytes);
                             let token = match str {
                                 "true" => {
