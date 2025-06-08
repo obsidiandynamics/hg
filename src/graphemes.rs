@@ -136,28 +136,28 @@ mod tests {
     fn to_graphemes(str: &str) -> Vec<char> {
         Graphemes::from(str).map(char::from).collect()
     }
-    
+
     #[test]
     fn ascii() {
         let str = "hello\n";
         let graphemes = to_graphemes(str);
         assert_eq!(vec!['h', 'e', 'l', 'l', 'o', '\n'], graphemes);
     }
-    
+
     #[test]
     fn ascii_with_2byte() {
         let str = "aµ";
         let graphemes = to_graphemes(str);
         assert_eq!(vec!['a', 'µ'], graphemes);
     }
-    
+
     #[test]
     fn ascii_with_3byte() {
         let str = "aµℝ";
         let graphemes = to_graphemes(str);
         assert_eq!(vec!['a', 'µ', 'ℝ'], graphemes);
     }
-    
+
     #[test]
     fn ascii_with_4byte() {
         let str = "aµℝ💣";
