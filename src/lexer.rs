@@ -190,16 +190,16 @@ impl<'a> Iterator for Tokeniser<'a> {
                         b'x' => {
                             //TODO handle hex (e.g., \x7F)
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char::from(byte), self.location.clone()).into()))
+                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
                         }
                         b'u' => {
                             //TODO handle unicode (e.g., \u{7FFF})
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char::from(byte), self.location.clone()).into()))
+                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
                         }
                         _ => {
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char::from(byte), self.location.clone()).into()))
+                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
                         }
                     }
                     match self.mode {
