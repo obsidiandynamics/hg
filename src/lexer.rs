@@ -363,7 +363,7 @@ impl<'a> Iterator for Tokeniser<'a> {
     }
 }
 
-#[inline(always)]
+#[inline(never)]
 pub fn read_grapheme(b0: u8, bytes: &mut NewlineTerminatedBytes) -> Grapheme {
     __read_grapheme(b0, bytes).unwrap()
 }

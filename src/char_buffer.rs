@@ -48,11 +48,6 @@ impl CharBuffer {
         self.copy.push(char);
     }
 
-    #[inline(never)]
-    fn push_grapheme_to_copy(&mut self, grapheme: Grapheme) {
-        self.copy.push(char::from(grapheme));
-    }
-
     #[inline]
     pub fn push_grapheme(&mut self, offset: usize, grapheme: Grapheme) {
         match self.mode {
@@ -65,7 +60,7 @@ impl CharBuffer {
                 self.len += grapheme.len_utf8();
             }
             Mode::Copy => {
-                self.push_grapheme_to_copy(grapheme)
+                self.push_to_copy(char::from(grapheme))
             }
         }
     }
