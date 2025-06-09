@@ -1,14 +1,13 @@
-use std::borrow::Cow;
 use crate::char_buffer::CharBuffer;
-use crate::newline_terminated_chars::NewlineTerminatedChars;
 use crate::token::{ListDelimiter, Location, Token};
 use std::io;
 use std::num::ParseIntError;
-use std::str::FromStr;
-use crate::graphemes::{Grapheme, Graphemes};
+use std::str::{FromStr};
+use crate::graphemes::Grapheme;
+use crate::newline_terminated_bytes::NewlineTerminatedBytes;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error<'a> {
+pub enum Error {
     #[error("i/o error {0}")]
     Io(#[from] io::Error),
 
@@ -22,10 +21,10 @@ pub enum Error<'a> {
     UnknownEscapeSequence(char, Location),
 
     #[error("unparsable integer {0} ({1}) at {2}")]
-    UnparsableInteger(Cow<'a, str>, ParseIntError, Location),
+    UnparsableInteger(String, ParseIntError, Location),
 
     #[error("unparsable decimal {0}.{1} ({2}) at {3}")]
-    UnparsableDecimal(u128, Cow<'a, str>, ParseIntError, Location),
+    UnparsableDecimal(u128, String, ParseIntError, Location),
 
     #[error("empty character literal at {0}")]
     EmptyCharacterLiteral(Location),
@@ -44,11 +43,11 @@ enum Mode {
 
 pub struct Tokeniser<'a> {
     bytes: &'a [u8],
-    char_indexes: NewlineTerminatedChars<'a>,
+    char_indexes: NewlineTerminatedBytes<'a>,
     token: CharBuffer,
     mode: Mode,
     location: Location,
-    stashed_char: Option<(usize, Grapheme)>,
+    stashed_char: Option<(usize, u8)>,
     error: bool
 }
 
@@ -57,7 +56,7 @@ impl<'a> Tokeniser<'a> {
     pub fn new(str: &'a str) -> Self {
         Self {
             bytes: str.as_bytes(),
-            char_indexes:  NewlineTerminatedChars::new(Graphemes::from(str)),
+            char_indexes:  NewlineTerminatedBytes::new(str.bytes()),
             token: CharBuffer::default(),
             mode: Mode::Whitespace,
             location: Location { line: 1, column: 0 },
@@ -67,16 +66,16 @@ impl<'a> Tokeniser<'a> {
     }
 
     #[inline(always)]
-    fn next_char(&mut self) -> Option<(usize, Grapheme)> {
+    fn next_char(&mut self) -> Option<(usize, u8)> {
         match self.stashed_char.take() {
             None => self.char_indexes.next(),
-            Some((index, char)) => Some((index, char))
+            Some((index, byte)) => Some((index, byte))
         }
     }
 }
 
 impl<'a> Iterator for Tokeniser<'a> {
-    type Item = Result<Token<'a>, Error<'a>>;
+    type Item = Result<Token<'a>, Box<Error>>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -84,15 +83,14 @@ impl<'a> Iterator for Tokeniser<'a> {
             return None;
         }
 
-        while let Some((index, grapheme)) = self.next_char() {
+        while let Some((index, byte)) = self.next_char() {
             self.location.column += 1;
-            let byte = grapheme.0[0];
             match self.mode {
                 Mode::Whitespace => {
                     match byte {
                         b'\\' => {
                             self.error = true;
-                            return Some(Err(Error::UnexpectedCharacter(char::from(grapheme), self.location.clone())))
+                            return Some(Err(Error::UnexpectedCharacter(byte as char, self.location.clone()).into()))
                         }
                         b'"' => {
                             self.mode = Mode::TextBody;
@@ -135,14 +133,18 @@ impl<'a> Iterator for Tokeniser<'a> {
                         }
                         b'0'..=b'9' => {
                             self.mode = Mode::Integer;
-                            self.token.push_grapheme(index, grapheme);
+                            self.token.push_byte(index, byte);
                         }
                         b'.' => {
                             self.mode = Mode::Decimal(0);
                         }
                         _ => {
                             self.mode = Mode::Ident;
-                            self.token.push_grapheme(index, grapheme);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.char_indexes))
+                            }
                         }
                     }
                 }
@@ -160,17 +162,21 @@ impl<'a> Iterator for Tokeniser<'a> {
                         }
                         b'\n' => {
                             self.error = true;
-                            return Some(Err(Error::UnterminatedLiteral(self.location.clone())))
+                            return Some(Err(Error::UnterminatedLiteral(self.location.clone()).into()))
                         }
                         _ => {
-                            self.token.push_grapheme(index, grapheme);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.char_indexes))
+                            }
                         }
                     }
                 }
                 Mode::CharacterEscape | Mode::TextEscape => {
                     match byte {
                         b'\\' | b'"' | b'\'' => {
-                            self.token.push_grapheme(0, grapheme);
+                            self.token.push_byte(0, byte);
                         }
                         b'n' => {
                             self.token.push(0, '\n');
@@ -184,16 +190,16 @@ impl<'a> Iterator for Tokeniser<'a> {
                         b'x' => {
                             //TODO handle hex (e.g., \x7F)
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char::from(grapheme), self.location.clone())))
+                            return Some(Err(Error::UnknownEscapeSequence(char::from(byte), self.location.clone()).into()))
                         }
                         b'u' => {
                             //TODO handle unicode (e.g., \u{7FFF})
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char::from(grapheme), self.location.clone())))
+                            return Some(Err(Error::UnknownEscapeSequence(char::from(byte), self.location.clone()).into()))
                         }
                         _ => {
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char::from(grapheme), self.location.clone())))
+                            return Some(Err(Error::UnknownEscapeSequence(char::from(byte), self.location.clone()).into()))
                         }
                     }
                     match self.mode {
@@ -220,7 +226,7 @@ impl<'a> Iterator for Tokeniser<'a> {
                             return match chars.next() {
                                 None => {
                                     self.error = true;
-                                    Some(Err(Error::EmptyCharacterLiteral(self.location.clone())))
+                                    Some(Err(Error::EmptyCharacterLiteral(self.location.clone()).into()))
                                 }
                                 Some(first_char) => {
                                     let token = Token::Character(first_char);
@@ -232,14 +238,18 @@ impl<'a> Iterator for Tokeniser<'a> {
                         }
                         b'\n' => {
                             self.error = true;
-                            return Some(Err(Error::UnterminatedLiteral(self.location.clone())))
+                            return Some(Err(Error::UnterminatedLiteral(self.location.clone()).into()))
                         }
                         _ => {
                             if self.token.is_empty() {
-                                self.token.push_grapheme(index, grapheme);
+                                if byte < 0x80 {
+                                    self.token.push_byte(index, byte);
+                                } else {
+                                    self.token.push_grapheme(index, read_grapheme(byte, &mut self.char_indexes))
+                                }
                             } else {
                                 self.error = true;
-                                return Some(Err(Error::UnexpectedCharacter(char::from(grapheme), self.location.clone())))
+                                return Some(Err(Error::UnexpectedCharacter(byte as char, self.location.clone()).into()))
                             }
                         }
                     }
@@ -258,7 +268,7 @@ impl<'a> Iterator for Tokeniser<'a> {
                                 }
                                 Err(err) => {
                                     self.error = true;
-                                    return Some(Err(Error::UnparsableInteger(self.token.string(self.bytes), err, self.location.clone())))
+                                    return Some(Err(Error::UnparsableInteger(self.token.string(self.bytes).to_string(), err, self.location.clone()).into()))
                                 }
                             }
                         }
@@ -269,17 +279,21 @@ impl<'a> Iterator for Tokeniser<'a> {
                                     let token = Token::Integer(whole);
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
-                                    self.stashed_char = Some((index, grapheme)); // don't consume the char
+                                    self.stashed_char = Some((index, byte)); // don't consume the char
                                     self.location.column -= 1;
                                     Some(Ok(token))
                                 }
                                 Err(err) => {
-                                    Some(Err(Error::UnparsableInteger(self.token.string(self.bytes), err, self.location.clone())))
+                                    Some(Err(Error::UnparsableInteger(self.token.string(self.bytes).to_string(), err, self.location.clone()).into()))
                                 }
                             }
                         }
                         _ => {
-                            self.token.push_grapheme(index, grapheme);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.char_indexes))
+                            }
                         }
                     }
                 }
@@ -295,17 +309,21 @@ impl<'a> Iterator for Tokeniser<'a> {
                                     let token = Token::Decimal(whole, fractional, self.token.len().try_into().expect("fractional part is too long"));
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
-                                    self.stashed_char = Some((index, grapheme)); // don't consume the char
+                                    self.stashed_char = Some((index, byte)); // don't consume the char
                                     self.location.column -= 1;
                                     Some(Ok(token))
                                 }
                                 Err(err) => {
-                                    Some(Err(Error::UnparsableDecimal(whole, self.token.string(self.bytes), err, self.location.clone())))
+                                    Some(Err(Error::UnparsableDecimal(whole, self.token.string(self.bytes).to_string(), err, self.location.clone()).into()))
                                 }
                             }
                         }
                         _ => {
-                            self.token.push_grapheme(index, grapheme);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.char_indexes))
+                            }
                         }
                     }
                 }
@@ -326,18 +344,43 @@ impl<'a> Iterator for Tokeniser<'a> {
                             };
                             self.token.clear();
                             self.mode = Mode::Whitespace;
-                            self.stashed_char = Some((index, grapheme)); // don't consume the char
+                            self.stashed_char = Some((index, byte)); // don't consume the char
                             self.location.column -= 1;
                             return Some(Ok(token))
                         }
                         _ => {
-                            self.token.push_grapheme(index, grapheme);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.char_indexes))
+                            }
                         }
                     }
                 }
             }
         }
         None
+    }
+}
+
+#[inline(always)]
+pub fn read_grapheme(b0: u8, bytes: &mut NewlineTerminatedBytes) -> Grapheme {
+    __read_grapheme(b0, bytes).unwrap()
+}
+
+#[inline(always)]
+fn __read_grapheme(b0: u8, bytes: &mut NewlineTerminatedBytes) -> Option<Grapheme> {
+    let (_, b1) = bytes.next()?;
+    if b0 >= 0xE0 {
+        let (_, b2) = bytes.next()?;
+        if b0 >= 0xF0 {
+            let (_, b3) = bytes.next()?;
+            Some(Grapheme([b0, b1, b2, b3]))
+        } else {
+            Some(Grapheme([b0, b1, b2, 0]))
+        }
+    } else {
+        Some(Grapheme([b0, b1, 0, 0]))
     }
 }
 

@@ -38,9 +38,19 @@ impl CharBuffer {
                 self.len += char.len_utf8();
             }
             Mode::Copy => {
-                self.copy.push(char);
+                self.push_to_copy(char)
             }
         }
+    }
+    
+    #[inline(never)]
+    fn push_to_copy(&mut self, char: char) {
+        self.copy.push(char);
+    }
+
+    #[inline(never)]
+    fn push_grapheme_to_copy(&mut self, grapheme: Grapheme) {
+        self.copy.push(char::from(grapheme));
     }
 
     #[inline]
@@ -55,11 +65,28 @@ impl CharBuffer {
                 self.len += grapheme.len_utf8();
             }
             Mode::Copy => {
-                self.copy.push(char::from(grapheme));
+                self.push_grapheme_to_copy(grapheme)
             }
         }
     }
 
+    #[inline]
+    pub fn push_byte(&mut self, offset: usize, byte: u8) {
+        match self.mode {
+            Mode::Slice => {
+                if self.len == 0 {
+                    self.offset = offset;
+                } else {
+                    debug_assert_eq!(self.offset + self.len, offset, "wrong character offset: expected {}, got {}", self.offset + self.len, offset);
+                }
+                self.len += 1;
+            }
+            Mode::Copy => {
+                self.push_to_copy(byte as char)
+            }
+        }
+    }
+    
     #[inline]
     pub fn clear(&mut self) {
         match self.mode {

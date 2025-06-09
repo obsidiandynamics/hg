@@ -1,4 +1,4 @@
-use std::slice;
+use std::str::Bytes;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Grapheme(pub [u8; 4]);
@@ -15,15 +15,6 @@ impl Grapheme {
         } else {
             4
         }
-        // if self.0[3] != 0 {
-        //     4
-        // } else if self.0[2] != 0 {
-        //     3
-        // } else if self.0[1] != 0 {
-        //     2
-        // } else {
-        //     1
-        // }
     }
 }
 
@@ -46,7 +37,7 @@ impl From<char> for Grapheme {
 
 #[derive(Debug)]
 pub struct Graphemes<'a> {
-    iter: slice::Iter<'a, u8>,
+    iter: Bytes<'a>,
 }
 
 // static BYTE_MAP: [u8; 256] = [
@@ -74,7 +65,7 @@ impl<'a> From<&'a str> for Graphemes<'a> {
     #[inline]
     fn from(str: &'a str) -> Self {
         Graphemes {
-            iter: str.as_bytes().iter(),
+            iter: str.bytes(),
         }
     }
 }
@@ -84,66 +75,33 @@ impl<'a> Iterator for Graphemes<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let b0 = *self.iter.next()?;
+        let b0 = self.iter.next()?;
         if b0 < 0x80 {
             Some(Grapheme([b0, 0, 0, 0]))
-        } else { // b0 > 0xC0
-            let b1 = *self.iter.next()?;
-            if b0 >= 0xE0 {
-                let b2 = *self.iter.next()?;
-                if b0 >= 0xF0 {
-                    let b3 = *self.iter.next()?;
-                    Some(Grapheme([b0, b1, b2, b3]))
-                } else {
-                    Some(Grapheme([b0, b1, b2, 0]))
-                }
-            } else {
-                Some(Grapheme([b0, b1, 0, 0]))
-            }
+        } else { // b0 > 0xC0 assumed, ignoring the 0x80..0xC0 range (continuation byte)
+            Some(read_grapheme(b0, &mut self.iter))
         }
-        // match self.iter.next() {
-        //     None => None,
-        //     Some(byte) => {
-        //         if *byte < 128 {
-        //             // Some(Grapheme(&self.bytes[self.offset..self.offset + 1]))
-        //             Some(Grapheme(Default::default()))
-        //         } else {
-        //             unimplemented!()
-        //         }
-        //     }
-        // }
-        
-        // if self.offset == self.bytes.len() {
-        //     None
-        // } else {
-        //     let next_byte = self.bytes[self.offset];
-        //     let next = if next_byte < 128 {
-        //         // Some(Grapheme(&self.bytes[self.offset..self.offset + 1]))
-        //         Some(Grapheme(Default::default()))
-        //     } else {
-        //         unimplemented!()
-        //     };
-        //     self.offset += 1;
-        //     // let len = match next_byte {
-        //     //     0x00..0x80 => 1,
-        //     //     0x80..0xC0 => 0,
-        //     //     0xC0..0xE0 => 2,
-        //     //     0xE0..0xF0 => 3,
-        //     //     0xF0..0xF8 => 4,
-        //     //     0xF8..0xFC => 5,
-        //     //     0xFC..0xFE => 6,
-        //     //     _ => 0,
-        //     // };
-        //     // 
-        //     // let next = if len >= 1 && len <= 4 {
-        //     //     Some(Grapheme(&self.bytes[self.offset..self.offset + len]))
-        //     // } else {
-        //     //     unimplemented!()
-        //     // };
-        //     
-        //     // self.offset += len;
-        //     next
-        // }
+    }
+}
+
+#[inline(always)]
+pub fn read_grapheme(b0: u8, bytes: &mut Bytes) -> Grapheme {
+    __read_grapheme(b0, bytes).unwrap()
+}
+
+#[inline(always)]
+fn __read_grapheme(b0: u8, bytes: &mut Bytes) -> Option<Grapheme> {
+    let b1 = bytes.next()?;
+    if b0 >= 0xE0 {
+        let b2 = bytes.next()?;
+        if b0 >= 0xF0 {
+            let b3 = bytes.next()?;
+            Some(Grapheme([b0, b1, b2, b3]))
+        } else {
+            Some(Grapheme([b0, b1, b2, 0]))
+        }
+    } else {
+        Some(Grapheme([b0, b1, 0, 0]))
     }
 }
 

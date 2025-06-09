@@ -3,7 +3,7 @@ use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{Error, Tokeniser};
 use crate::lexer::tests::Ownership::{Borrowed, NA, Owned};
-use crate::token::{ListDelimiter, Token};
+use crate::token::{ListDelimiter, Location, Token};
 use crate::token::ListDelimiter::Brace;
 use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, Left, Right};
 
@@ -11,7 +11,7 @@ fn tok_ok(str: &str) -> Vec<Token> {
     Tokeniser::new(str).map(Result::unwrap).collect()
 }
 
-fn tok_err(str: &str) -> Error {
+fn tok_err(str: &str) -> Box<Error> {
      Tokeniser::new(str)
         .map(Result::err)
         .skip_while(Option::is_none)
@@ -39,6 +39,14 @@ fn is_owned(tokens: Vec<Token>) -> Vec<Ownership> {
 }
 
 #[test]
+fn error_terminates_tokeniser() {
+    let str = r#"\n"#;
+    let mut tokens = Tokeniser::new(str);
+    assert!(tokens.next().unwrap().is_err());
+    assert!(tokens.next().is_none());
+}
+
+#[test]
 fn text_unescaped() {
     let str = r#""hello world"
         "hi""#;
@@ -48,10 +56,27 @@ fn text_unescaped() {
 }
 
 #[test]
+fn text_unescaped_with_utf8() {
+    let str = r#""hello µℝ💣 world"
+        "hiµℝ💣""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hello µℝ💣 world".into()), Newline, Text("hiµℝ💣".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
+}
+
+#[test]
 fn text_escaped_newline() {
     let str = r#""hel\nlo""#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Text("hel\nlo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_newline_with_utf8() {
+    let str = r#""hel\nµℝ💣""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel\nµℝ💣".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
 }
 
@@ -109,6 +134,14 @@ fn character_unescaped() {
         'b'"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Character('a'), Newline, Character('b'), Newline], tokens);
+}
+
+#[test]
+fn character_unescaped_with_utf8() {
+    let str = r#"'💣'
+        'µ'"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Character('💣'), Newline, Character('µ'), Newline], tokens);
 }
 
 #[test]
@@ -249,6 +282,13 @@ fn integer_invalid_err() {
 }
 
 #[test]
+fn integer_invalid_due_to_utf8_err() {
+    let str = r#"1💣1:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable integer 1💣1 (invalid digit found in string) at line 1, column 4", err.to_string());
+}
+
+#[test]
 fn decimal_newline_terminated() {
     let str = r#"1234567890.0123456789"#;
     let tokens = tok_ok(str);
@@ -298,10 +338,10 @@ fn decimal_fractional_too_large_err() {
 }
 
 #[test]
-fn decimal_whole_invalid_err() {
-    let str = r#"1k1."#;
+fn decimal_whole_invalid_due_to_utf8_err() {
+    let str = r#"1💣1."#;
     let err = tok_err(str);
-    assert_eq!("unparsable integer 1k1 (invalid digit found in string) at line 1, column 4", err.to_string());
+    assert_eq!("unparsable integer 1💣1 (invalid digit found in string) at line 1, column 4", err.to_string());
 }
 
 #[test]
@@ -312,11 +352,36 @@ fn decimal_fractional_invalid_err() {
 }
 
 #[test]
+fn decimal_fractional_invalid_due_to_utf8_err() {
+    let str = r#"1234567890.1💣1:"#;
+    let err = tok_err(str);
+    assert_eq!("unparsable decimal 1234567890.1💣1 (invalid digit found in string) at line 1, column 15", err.to_string());
+}
+
+#[test]
 fn ident() {
     let str = r#"first second
     third"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![Ident("first".into()), Ident("second".into()), Newline, Ident("third".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
+}
+
+#[test]
+fn ident_starts_with_utf8() {
+    let str = r#"first µℝ💣second
+    third"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Ident("first".into()), Ident("µℝ💣second".into()), Newline, Ident("third".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
+}
+
+#[test]
+fn ident_ends_with_utf8() {
+    let str = r#"first secondµℝ💣
+    third"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Ident("first".into()), Ident("secondµℝ💣".into()), Newline, Ident("third".into()), Newline], tokens);
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
 }
 
