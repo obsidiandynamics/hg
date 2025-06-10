@@ -1,7 +1,7 @@
 use std::str::Bytes;
 
 pub struct NewlineTerminatedBytes<'a> {
-    pub(crate) bytes: Bytes<'a>,
+    bytes: Bytes<'a>,
     prev: Option<(usize, u8)>,
     offset: usize,
 }
