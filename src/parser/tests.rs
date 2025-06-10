@@ -7,11 +7,11 @@ use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
-    parse(tokens.into()).unwrap()
+    parse(tokens.into_iter().map(Ok)).unwrap()
 }
 
 fn parse_err(tokens: Vec<Token>) -> Error {
-    parse(tokens.into()).unwrap_err()
+    parse(tokens.into_iter().map(Ok)).unwrap_err()
 }
 
 #[test]

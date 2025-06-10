@@ -67,15 +67,14 @@ impl<'a> Tokeniser<'a> {
 
     #[inline(always)]
     fn next_byte(&mut self) -> Option<(usize, u8)> {
-        match self.stashed_byte.take() {
-            None => self.byte_indexes.next(),
-            Some((index, byte)) => Some((index, byte))
-        }
+        self.stashed_byte.take().or_else(|| self.byte_indexes.next())
     }
 }
 
+pub type Fragment<'a> = Result<Token<'a>, Box<Error>>;
+
 impl<'a> Iterator for Tokeniser<'a> {
-    type Item = Result<Token<'a>, Box<Error>>;
+    type Item = Fragment<'a>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {

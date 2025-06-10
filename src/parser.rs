@@ -1,11 +1,18 @@
-use std::collections::VecDeque;
 use std::mem;
 use thiserror::Error;
+use crate::lexer;
+use crate::lexer::Fragment;
+use crate::parser::fragment_stream::{FragmentStream};
 use crate::token::{ListDelimiter, Token};
 use crate::tree::{Node, Phrase, Verse};
 
+mod fragment_stream;
+
 #[derive(Debug, Error)]
 pub enum Error<'a> {
+    #[error("lexer error: {0}")]
+    Lexer(#[from] Box<lexer::Error>),
+    
     #[error("unterminated container")]
     UnterminatedContainer,
     
@@ -31,10 +38,13 @@ pub enum Error<'a> {
     EmptyConsSegment,
 }
 
-pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
+#[inline]
+pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Verse<'a>, Error<'a>> {
+    let mut fragments = FragmentStream::from(into_iter.into_iter());
     let mut verse = vec![];
     let mut phrase = vec![];
-    while let Some(token) = tokens.pop_front() {
+    while let Some(fragment) = fragments.next() {
+        let token = fragment?;
         match token {
             Token::Newline => {
                 if !phrase.is_empty() {
@@ -46,16 +56,16 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
                 phrase.push(Node::Raw(token));
             }
             Token::Left(delimiter) => {
-                let child = parse_list(delimiter, &mut tokens)?;
+                let child = parse_list(delimiter, &mut fragments)?;
                 phrase.push(child);
             }
             Token::Colon => {
                 let head = cons_head(&mut phrase)?;
-                let child = parse_cons(head, &mut tokens)?;
+                let child = parse_cons(head, &mut fragments)?;
                 phrase.push(child);
             }
             Token::Dash => {
-                let child = parse_prefix(token, &mut tokens)?;
+                let child = parse_prefix(token, &mut fragments)?;
                 phrase.push(child);
             }
             Token::Comma | Token::Right(_) => {
@@ -72,12 +82,13 @@ pub fn parse(mut tokens: VecDeque<Token>) -> Result<Verse, Error> {
 }
 
 #[inline]
-fn parse_list<'a>(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token<'a>>) -> Result<Node<'a>, Error<'a>> {
+fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(left_delimiter: ListDelimiter, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
     let mut verses = vec![];
     let mut verse = vec![];
     let mut phrase = vec![];
     loop {
-        if let Some(token) = tokens.pop_front() {
+        if let Some(fragment) = fragments.next() {
+            let token = fragment?;
             match token {
                 Token::Newline => {
                     if !phrase.is_empty() {
@@ -89,11 +100,11 @@ fn parse_list<'a>(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token<'a>
                     phrase.push(Node::Raw(token));
                 }
                 Token::Left(delimiter) => {
-                    let child = parse_list(delimiter, tokens)?;
+                    let child = parse_list(delimiter, fragments)?;
                     phrase.push(child);
                 }
                 Token::Dash => {
-                    let child = parse_prefix(token, tokens)?;
+                    let child = parse_prefix(token, fragments)?;
                     phrase.push(child);
                 }
                 Token::Comma => {
@@ -109,7 +120,7 @@ fn parse_list<'a>(left_delimiter: ListDelimiter, tokens: &mut VecDeque<Token<'a>
                 }
                 Token::Colon => {
                     let head = cons_head(&mut phrase)?;
-                    let child = parse_cons(head, tokens)?;
+                    let child = parse_cons(head, fragments)?;
                     phrase.push(child);
                 }
                 Token::Right(right_delimiter) => {
@@ -142,30 +153,31 @@ fn cons_head<'a>(nodes: &mut Vec<Node<'a>>) -> Result<Node<'a>, Error<'a>> {
 }
 
 #[inline]
-fn parse_cons<'a>(head: Node<'a>, tokens: &mut VecDeque<Token<'a>>) -> Result<Node<'a>, Error<'a>> {
+fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
     let mut tail = vec![];
     loop {
-        if let Some(token) = tokens.pop_front() {
+        if let Some(fragment) = fragments.next() {
+            let token = fragment?;
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     tail.push(Node::Raw(token))
                 }
                 Token::Left(delimiter) => {
-                    let child = parse_list(delimiter, tokens)?;
+                    let child = parse_list(delimiter, fragments)?;
                     tail.push(child);
                 }
                 Token::Dash => {
-                    let child = parse_prefix(token, tokens)?;
+                    let child = parse_prefix(token, fragments)?;
                     tail.push(child);
                 }
                 Token::Right(_) | Token::Comma | Token::Newline => {
-                    tokens.push_front(token); // restore token for the parent parser
+                    fragments.stash(Ok(token)); // restore token for the parent parser
                     return Ok(Node::Cons(Box::new(head), Phrase(tail)))
                 }
                 Token::Colon => {
                     return if !tail.is_empty() {
                         let cons = Node::Cons(Box::new(head), Phrase(tail));
-                        let child = parse_cons(cons, tokens)?;
+                        let child = parse_cons(cons, fragments)?;
                         Ok(child)
                     } else {
                         Err(Error::EmptyConsSegment)
@@ -179,15 +191,16 @@ fn parse_cons<'a>(head: Node<'a>, tokens: &mut VecDeque<Token<'a>>) -> Result<No
 }
 
 #[inline]
-fn parse_prefix<'a>(symbol: Token<'a>, tokens: &mut VecDeque<Token<'a>>) -> Result<Node<'a>, Error<'a>> {
-    match tokens.pop_front() {
-        Some(token) => {
+fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(symbol: Token<'a>, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
+    match fragments.next() {
+        Some(fragment) => {
+            let token = fragment?;
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     Ok(Node::Prefix(symbol, Box::new(Node::Raw(token))))
                 }
                 Token::Left(delimiter) => {
-                    let child = parse_list(delimiter, tokens)?;
+                    let child = parse_list(delimiter, fragments)?;
                     Ok(Node::Prefix(symbol, Box::new(child)))
                 }
                 Token::Newline | Token::Right(_) | Token::Comma | Token::Colon | Token::Dash => {

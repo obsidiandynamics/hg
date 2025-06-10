@@ -1,20 +1,13 @@
-use std::borrow::Cow;
-use criterion::{criterion_group, criterion_main, Criterion};
-use hg::lexer::{Tokeniser};
+use criterion::{Criterion, criterion_group, criterion_main};
 use hg::parser::parse;
-use std::collections::VecDeque;
 use std::fs;
-use std::str::{Bytes, CharIndices};
-use hg::char_buffer::CharBuffer;
-use hg::graphemes::Graphemes;
-use hg::newline_terminated_bytes::NewlineTerminatedBytes;
-use crate::Element::Line;
+use hg::lexer::Tokeniser;
 
 fn criterion_benchmark(c: &mut Criterion) {
     fn bench_file(c: &mut Criterion, name: &str) {
         let data = fs::read_to_string(format!("benches/data/{name}.json")).unwrap();
         let data = data.as_str();
-        
+
         c.bench_function(format!("cri_json_lexer-{name}").as_str(), |b| {
             let data = std::hint::black_box(data);
             b.iter(|| {
@@ -38,9 +31,17 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         c.bench_function(format!("cri_json_parser-{name}").as_str(), |b| {
             b.iter_with_setup(
-            || Tokeniser::new(data).map(Result::unwrap).collect::<VecDeque<_>>(),
-            |tokens| {
-                let verse = parse(tokens).unwrap();
+                || Tokeniser::new(data),
+                |iter| {
+                    let verse = parse(iter).unwrap();
+                    verse
+                },
+            );
+        });
+
+        c.bench_function(format!("cri_json_combined-{name}").as_str(), |b| {
+            b.iter(|| {
+                let verse = parse(Tokeniser::new(data)).unwrap();
                 verse
             });
         });
@@ -55,76 +56,71 @@ fn criterion_benchmark(c: &mut Criterion) {
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 
-enum Element<'a> {
-    Line(Cow<'a, str>)
-}
-
-struct BasicParser<'a> {
-    bytes: &'a [u8],
-    iter: NewlineTerminatedBytes<'a>,
-    buffer: Buffer,
-    // offset: usize,
-}
-
-impl<'a> From<&'a str> for BasicParser<'a> {
-    #[inline(always)]
-    fn from(str: &'a str) -> Self {
-        Self {
-            bytes: str.as_bytes(),
-            iter: NewlineTerminatedBytes::new(str.bytes()),
-            buffer: Buffer {
-                offset: 0,
-                len: 0,
-            },
-            // offset: 0
-        }
-    }
-}
-
-struct Buffer {
-    offset: usize,
-    len: usize
-}
-
-impl Buffer {
-    #[inline(always)]
-    fn push(&mut self, offset: usize) {
-        if self.len == 0 {
-            self.offset = offset;
-        }
-        self.len += 1;
-    }
-
-    #[inline(always)]
-    fn string<'b>(&self, bytes: &'b[u8]) -> Cow<'b, str> {
-        let str = unsafe { str::from_utf8_unchecked(&bytes[self.offset..self.offset + self.len]) };
-        Cow::Borrowed(str)
-    }
-
-    #[inline(always)]
-    fn clear(&mut self) {
-        self.offset = 0;
-        self.len = 0;
-    }
-}
-
-impl<'a> Iterator for BasicParser<'a> {
-    type Item = Element<'a>;
-
-    #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some((offset, byte)) = self.iter.next() {
-            match byte {
-                b'\n' => {
-                    let line = self.buffer.string(self.bytes);
-                    self.buffer.clear();
-                    return Some(Line(line))
-                },
-                _ => {
-                    self.buffer.push(offset)
-                }
-            }
-        }
-        None
-    }
-}
+// enum Element<'a> {
+//     Line(Cow<'a, str>),
+// }
+// 
+// struct BasicParser<'a> {
+//     bytes: &'a [u8],
+//     iter: NewlineTerminatedBytes<'a>,
+//     buffer: Buffer,
+//     // offset: usize,
+// }
+// 
+// impl<'a> From<&'a str> for BasicParser<'a> {
+//     #[inline(always)]
+//     fn from(str: &'a str) -> Self {
+//         Self {
+//             bytes: str.as_bytes(),
+//             iter: NewlineTerminatedBytes::new(str.bytes()),
+//             buffer: Buffer { offset: 0, len: 0 },
+//             // offset: 0
+//         }
+//     }
+// }
+// 
+// struct Buffer {
+//     offset: usize,
+//     len: usize,
+// }
+// 
+// impl Buffer {
+//     #[inline(always)]
+//     fn push(&mut self, offset: usize) {
+//         if self.len == 0 {
+//             self.offset = offset;
+//         }
+//         self.len += 1;
+//     }
+// 
+//     #[inline(always)]
+//     fn string<'b>(&self, bytes: &'b [u8]) -> Cow<'b, str> {
+//         let str = unsafe { str::from_utf8_unchecked(&bytes[self.offset..self.offset + self.len]) };
+//         Cow::Borrowed(str)
+//     }
+// 
+//     #[inline(always)]
+//     fn clear(&mut self) {
+//         self.offset = 0;
+//         self.len = 0;
+//     }
+// }
+// 
+// impl<'a> Iterator for BasicParser<'a> {
+//     type Item = Element<'a>;
+// 
+//     #[inline(always)]
+//     fn next(&mut self) -> Option<Self::Item> {
+//         while let Some((offset, byte)) = self.iter.next() {
+//             match byte {
+//                 b'\n' => {
+//                     let line = self.buffer.string(self.bytes);
+//                     self.buffer.clear();
+//                     return Some(Line(line));
+//                 }
+//                 _ => self.buffer.push(offset),
+//             }
+//         }
+//         None
+//     }
+// }

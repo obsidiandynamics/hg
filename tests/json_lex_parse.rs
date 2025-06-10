@@ -11,7 +11,7 @@ fn tok_ok(str: &str) -> Vec<Token> {
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
-    parse(tokens.into()).unwrap()
+    parse(tokens.into_iter().map(Ok)).unwrap()
 }
 
 fn string(value: &str) -> Node {
