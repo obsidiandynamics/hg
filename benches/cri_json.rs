@@ -22,8 +22,6 @@ fn criterion_benchmark(c: &mut Criterion) {
                 // exp_count_tokens(data)
 
                 Tokeniser::new(data).count()
-                // data.char_indices().count()
-                // Graphemes::from(data).count()
 
                 // BasicParser::from(data).count()
             })
@@ -59,14 +57,14 @@ criterion_main!(benches);
 // enum Element<'a> {
 //     Line(Cow<'a, str>),
 // }
-// 
+//
 // struct BasicParser<'a> {
 //     bytes: &'a [u8],
 //     iter: NewlineTerminatedBytes<'a>,
 //     buffer: Buffer,
 //     // offset: usize,
 // }
-// 
+//
 // impl<'a> From<&'a str> for BasicParser<'a> {
 //     #[inline(always)]
 //     fn from(str: &'a str) -> Self {
@@ -78,12 +76,12 @@ criterion_main!(benches);
 //         }
 //     }
 // }
-// 
+//
 // struct Buffer {
 //     offset: usize,
 //     len: usize,
 // }
-// 
+//
 // impl Buffer {
 //     #[inline(always)]
 //     fn push(&mut self, offset: usize) {
@@ -92,23 +90,23 @@ criterion_main!(benches);
 //         }
 //         self.len += 1;
 //     }
-// 
+//
 //     #[inline(always)]
 //     fn string<'b>(&self, bytes: &'b [u8]) -> Cow<'b, str> {
 //         let str = unsafe { str::from_utf8_unchecked(&bytes[self.offset..self.offset + self.len]) };
 //         Cow::Borrowed(str)
 //     }
-// 
+//
 //     #[inline(always)]
 //     fn clear(&mut self) {
 //         self.offset = 0;
 //         self.len = 0;
 //     }
 // }
-// 
+//
 // impl<'a> Iterator for BasicParser<'a> {
 //     type Item = Element<'a>;
-// 
+//
 //     #[inline(always)]
 //     fn next(&mut self) -> Option<Self::Item> {
 //         while let Some((offset, byte)) = self.iter.next() {

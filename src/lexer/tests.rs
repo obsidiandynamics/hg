@@ -368,6 +368,22 @@ fn ident() {
 }
 
 #[test]
+fn ident_with_mid_and_trailing_digits() {
+    let str = r#"alpha123tail456"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Ident("alpha123tail456".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, NA], is_owned(tokens));
+}
+
+#[test]
+fn ident_with_underscores() {
+    let str = r#"__alpha_bravo"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Ident("__alpha_bravo".into()), Newline], tokens);
+    assert_eq!(vec![Borrowed, NA], is_owned(tokens));
+}
+
+#[test]
 fn ident_starts_with_utf8() {
     let str = r#"first µℝ💣second
     third"#;
