@@ -6,6 +6,8 @@ use std::str::{FromStr};
 use crate::graphemes::Grapheme;
 use crate::newline_terminated_bytes::NewlineTerminatedBytes;
 
+mod symbols;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("i/o error {0}")]
@@ -384,6 +386,35 @@ fn __read_grapheme(b0: u8, bytes: &mut NewlineTerminatedBytes) -> Option<Graphem
         Some(Grapheme([b0, b1, 0, 0]))
     }
 }
+
+static SYMBOL_MAP: [bool; 256] = [
+    /*
+    0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // 0
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // 1
+    F, T, F, T, T, T, T, F, F, F, T, T, T, T, T, T, // 2
+    F, F, F, F, F, F, F, F, F, F, T, T, T, T, T, T, // 3
+    T, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // 4
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, T, F, // 5
+    T, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // 6
+    F, F, F, F, F, F, F, F, F, F, F, F, T, F, T, F, // 7
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // 8
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // 9
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // A
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // B
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // C
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // D
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // E
+    F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, // F
+];
+
+const T: bool = true;
+const F: bool = false;
+
+// #[inline(always)]
+// fn is_symbol(byte: u8) -> bool {
+//
+// }
 
 #[cfg(test)]
 mod tests;

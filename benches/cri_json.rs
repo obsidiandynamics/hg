@@ -28,6 +28,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
 
         c.bench_function(format!("cri_json_parser-{name}").as_str(), |b| {
+            let data = std::hint::black_box(data);
             b.iter_with_setup(
                 || Tokeniser::new(data),
                 |iter| {
@@ -38,6 +39,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
 
         c.bench_function(format!("cri_json_combined-{name}").as_str(), |b| {
+            let data = std::hint::black_box(data);
             b.iter(|| {
                 let verse = parse(Tokeniser::new(data)).unwrap();
                 verse
