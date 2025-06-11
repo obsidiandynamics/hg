@@ -1,7 +1,7 @@
 use hg::lexer::Tokeniser;
 use hg::parser::parse;
-use hg::token::Token;
-use hg::token::Token::{Boolean, Dash, Decimal, Ident, Integer, Text};
+use hg::token::{Byte, Token};
+use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
 use hg::{phrase, verse};
@@ -35,7 +35,7 @@ fn null() -> Node<'static> {
 }
 
 fn negative(value: impl Into<Node<'static>>) -> Node<'static> {
-    Prefix(Dash, Box::new(value.into()))
+    Prefix(Symbol(Byte(b'-')), Box::new(value.into()))
 }
 
 fn key_value(key: &'static str, value: Node<'static>) -> Node<'static> {

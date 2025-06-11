@@ -3,9 +3,9 @@ use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
 use crate::lexer::{Error, Tokeniser};
 use crate::lexer::tests::Ownership::{Borrowed, NA, Owned};
-use crate::token::{ListDelimiter, Token};
+use crate::token::{Byte, ListDelimiter, Token};
 use crate::token::ListDelimiter::Brace;
-use crate::token::Token::{Boolean, Character, Colon, Comma, Dash, Decimal, Ident, Left, Right};
+use crate::token::Token::{Boolean, Character, Symbol, Decimal, Ident, Left, Right};
 
 fn tok_ok(str: &str) -> Vec<Token> {
     Tokeniser::new(str).map(Result::unwrap).collect()
@@ -215,21 +215,21 @@ fn left_and_right_brace() {
 fn dash() {
     let str = r#" - -- -"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Dash, Dash, Dash, Dash, Newline], tokens);
+    assert_eq!(vec![Symbol(Byte(b'-')), Symbol(Byte(b'-')), Symbol(Byte(b'-')), Symbol(Byte(b'-')), Newline], tokens);
 }
 
 #[test]
 fn colon() {
     let str = r#" : :: :"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Colon, Colon, Colon, Colon, Newline], tokens);
+    assert_eq!(vec![Symbol(Byte(b':')), Symbol(Byte(b':')), Symbol(Byte(b':')), Symbol(Byte(b':')), Newline], tokens);
 }
 
 #[test]
 fn comma() {
     let str = r#" , ,, ,"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Comma, Comma, Comma, Comma, Newline], tokens);
+    assert_eq!(vec![Symbol(Byte(b',')), Symbol(Byte(b',')), Symbol(Byte(b',')), Symbol(Byte(b',')), Newline], tokens);
 }
 
 #[test]
@@ -250,21 +250,21 @@ fn integer_zero_newline_terminated() {
 fn integer_colon_terminated() {
     let str = r#"1_234_567_890:"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Integer(1234567890), Colon, Newline], tokens);
+    assert_eq!(vec![Integer(1234567890), Symbol(Byte(b':')), Newline], tokens);
 }
 
 #[test]
 fn integer_dash_terminated() {
     let str = r#"123-456"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Integer(123), Dash, Integer(456), Newline], tokens);
+    assert_eq!(vec![Integer(123), Symbol(Byte(b'-')), Integer(456), Newline], tokens);
 }
 
 #[test]
 fn integer_comma_terminated() {
     let str = r#"123,456"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Integer(123), Comma, Integer(456), Newline], tokens);
+    assert_eq!(vec![Integer(123), Symbol(Byte(b',')), Integer(456), Newline], tokens);
 }
 
 #[test]
@@ -313,14 +313,14 @@ fn decimal_implied_leading_zero() {
 fn decimal_colon_terminated() {
     let str = r#"1_234_567_890.0_123_456_789:"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Colon, Newline], tokens);
+    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Symbol(Byte(b':')), Newline], tokens);
 }
 
 #[test]
 fn decimal_comma_terminated() {
     let str = r#"1_234_567_890.0_123_456_789,12.34"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Comma, Decimal(12, 34, 2), Newline], tokens);
+    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Symbol(Byte(b',')), Decimal(12, 34, 2), Newline], tokens);
 }
 
 #[test]
@@ -405,7 +405,7 @@ fn ident_ends_with_utf8() {
 fn ident_colon_terminated() {
     let str = r#"first:second"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Ident("first".into()), Colon, Ident("second".into()), Newline], tokens);
+    assert_eq!(vec![Ident("first".into()), Symbol(Byte(b':')), Ident("second".into()), Newline], tokens);
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
 }
 
@@ -420,7 +420,7 @@ fn boolean() {
 fn boolean_comma_terminated() {
     let str = r#"true false,"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Boolean(true), Boolean(false), Comma, Newline], tokens);
+    assert_eq!(vec![Boolean(true), Boolean(false), Symbol(Byte(b',')), Newline], tokens);
 }
 
 #[test]
@@ -461,7 +461,7 @@ fn mixed_list_with_one_item_trailing_comma() {
     let str = r#"(1,)"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        Left(Paren), Integer(1), Comma, Right(Paren), Newline
+        Left(Paren), Integer(1), Symbol(Byte(b',')), Right(Paren), Newline
     ], tokens);
 }
 
@@ -470,7 +470,7 @@ fn mixed_list_with_many_items() {
     let str = r#"(1 2, 3)"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        Left(Paren), Integer(1), Integer(2), Comma, Integer(3), Right(Paren), Newline
+        Left(Paren), Integer(1), Integer(2), Symbol(Byte(b',')), Integer(3), Right(Paren), Newline
     ], tokens);
 }
 
@@ -479,7 +479,7 @@ fn mixed_cons_single_long_tail() {
     let str = r#"1:2 3"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        Integer(1), Colon, Integer(2), Integer(3), Newline
+        Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Newline
     ], tokens);
 }
 
@@ -488,7 +488,7 @@ fn mixed_cons_multiple() {
     let str = r#"1:2 3:4"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Newline
+        Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Symbol(Byte(b':')), Integer(4), Newline
     ], tokens);
 }
 
@@ -497,6 +497,6 @@ fn mixed_cons_inside_container() {
     let str = r#"{1:2 3:4}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        Left(Brace), Integer(1), Colon, Integer(2), Integer(3), Colon, Integer(4), Right(Brace), Newline
+        Left(Brace), Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Symbol(Byte(b':')), Integer(4), Right(Brace), Newline
     ], tokens);
 }

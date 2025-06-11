@@ -1,5 +1,15 @@
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
+use crate::types::unqualified_type_name;
+
+#[derive(PartialEq, Eq)]
+pub struct Byte(pub u8);
+
+impl Debug for Byte {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(b'{}')", unqualified_type_name::<Self>(), self.0 as char)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'a> {
@@ -10,9 +20,7 @@ pub enum Token<'a> {
     Boolean(bool),
     Left(ListDelimiter),
     Right(ListDelimiter),
-    Dash,
-    Colon,
-    Comma,
+    Symbol(Byte),
     Ident(Cow<'a, str>),
     Newline,
 }
@@ -34,5 +42,16 @@ pub struct Location {
 impl Display for Location {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "line {}, column {}", self.line, self.column)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::token::Byte;
+
+    #[test]
+    fn byte_debug() {
+        let byte = Byte(b'a');
+        assert_eq!("Byte(b'a')", format!("{byte:?}"));
     }
 }

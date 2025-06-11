@@ -26,7 +26,7 @@ const T: bool = true;
 const F: bool = false;
 
 #[inline(always)]
-const fn is_symbol(byte: u8) -> bool {
+pub const fn is_symbol(byte: u8) -> bool {
     SYMBOL_MAP[byte as usize]
 }
 
@@ -37,7 +37,7 @@ impl Display for SymbolString<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut buf = String::from("[");
         for (index, byte) in self.0.iter().enumerate() {
-            buf.push_str(format!("{:#x}", byte).as_str());
+            buf.push_str(format!("b'{}'", *byte as char).as_str());
             if index < self.0.len() - 1 {
                 buf.push_str(", ")
             }
@@ -102,11 +102,10 @@ impl<'a> SymbolTable<'a> {
                 }
             }
             Cow::Owned(vec) => {
-                let slice = &*vec;
-                if slice.len() == 2 {
+                if vec.len() == 2 {
                     true
                 } else {
-                    let prefix = &slice[..slice.len() - 1];
+                    let prefix = &vec[..vec.len() - 1];
                     self.contains(&SymbolString(prefix.into()))
                 }
             }
@@ -127,72 +126,14 @@ impl<'a> SymbolTable<'a> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::lexer::symbols::{SymbolString, SymbolTable, SYMBOL_MAP};
-
-    #[test]
-    fn symbol_parse_valid() {
-        SymbolString::try_from(":@#").unwrap();
-    }
-
-    #[test]
-    fn symbol_parse_invalid_symbol_err() {
-        let err = SymbolString::try_from(":@a#").unwrap_err();
-        assert_eq!("invalid symbol 0x61 at offset 2", err.to_string());
-    }
-
-    #[test]
-    fn symbol_parse_too_short_err() {
-        let err = SymbolString::try_from(":").unwrap_err();
-        assert_eq!("symbol string should be at least 2 bytes long", err.to_string());
-    }
-
-    #[test]
-    fn symbols_add_new() {
+impl Default for SymbolTable<'static> {
+    #[inline]
+    fn default() -> Self {
         let mut symbols = SymbolTable::empty();
         symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from(":::").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from("@#").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from("@?").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from("@?$").unwrap()).unwrap();
-        println!("symbols: {symbols:#?}");
-    }
-
-    #[test]
-    fn symbols_add_duplicate_err() {
-        let mut symbols = SymbolTable::empty();
-        symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from("::?").unwrap()).unwrap();
-        let err = symbols.add(SymbolString::try_from("::?").unwrap()).unwrap_err();
-        assert_eq!("duplicate [0x3a, 0x3a, 0x3f]", err.to_string());
-    }
-
-    #[test]
-    fn symbols_add_missing_prefix_err() {
-        let mut symbols = SymbolTable::empty();
-        symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from("::?").unwrap()).unwrap();
-        let err = symbols.add(SymbolString::try_from("::%").unwrap()).unwrap_err();
-        assert_eq!("missing prefix for [0x3a, 0x3a, 0x3f]", err.to_string());
-    }
-
-    const EXPECTED_SYMBOLS: &str = "!#$%&*+,-./:;<=>?@^`|~";
-
-    #[test]
-    fn all_symbols_in_table() {
-        for byte in EXPECTED_SYMBOLS.bytes() {
-            assert!(SYMBOL_MAP[byte as usize], "for byte {byte:#x}");
-        }
-    }
-
-    #[test]
-    fn no_extraneous_symbols_in_table() {
-        let expected_symbol_bytes = EXPECTED_SYMBOLS.as_bytes();
-        for (index, &symbol) in SYMBOL_MAP.iter().enumerate() {
-            if symbol {
-                assert!(expected_symbol_bytes.contains(&(index as u8)), "for index {index:#x}");
-            }
-        }
+        symbols
     }
 }
+
+#[cfg(test)]
+mod tests;
