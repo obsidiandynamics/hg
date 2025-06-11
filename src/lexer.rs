@@ -1,13 +1,13 @@
-use std::borrow::Cow;
 use crate::char_buffer::CharBuffer;
-use crate::newline_terminated_chars::NewlineTerminatedChars;
-use crate::token::{ListDelimiter, Location, Token};
+use crate::token::{Byte, ListDelimiter, Location, Token};
 use std::io;
 use std::num::ParseIntError;
 use std::str::FromStr;
+use crate::graphemes::Grapheme;
+use crate::newline_terminated_bytes::NewlineTerminatedBytes;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error<'a> {
+pub enum Error {
     #[error("i/o error {0}")]
     Io(#[from] io::Error),
 
@@ -21,10 +21,10 @@ pub enum Error<'a> {
     UnknownEscapeSequence(char, Location),
 
     #[error("unparsable integer {0} ({1}) at {2}")]
-    UnparsableInteger(Cow<'a, str>, ParseIntError, Location),
+    UnparsableInteger(String, ParseIntError, Location),
 
     #[error("unparsable decimal {0}.{1} ({2}) at {3}")]
-    UnparsableDecimal(u128, Cow<'a, str>, ParseIntError, Location),
+    UnparsableDecimal(u128, String, ParseIntError, Location),
 
     #[error("empty character literal at {0}")]
     EmptyCharacterLiteral(Location),
@@ -43,11 +43,11 @@ enum Mode {
 
 pub struct Tokeniser<'a> {
     bytes: &'a [u8],
-    char_indexes: NewlineTerminatedChars<'a>,
+    byte_indexes: NewlineTerminatedBytes<'a>,
     token: CharBuffer,
     mode: Mode,
     location: Location,
-    stashed_char: Option<(usize, char)>,
+    stashed_byte: Option<(usize, u8)>,
     error: bool
 }
 
@@ -56,26 +56,25 @@ impl<'a> Tokeniser<'a> {
     pub fn new(str: &'a str) -> Self {
         Self {
             bytes: str.as_bytes(),
-            char_indexes:  NewlineTerminatedChars::new(str.char_indices()),
+            byte_indexes:  NewlineTerminatedBytes::new(str.bytes()),
             token: CharBuffer::default(),
             mode: Mode::Whitespace,
             location: Location { line: 1, column: 0 },
-            stashed_char: None,
+            stashed_byte: None,
             error: false,
         }
     }
 
     #[inline(always)]
-    fn next_char(&mut self) -> Option<(usize, char)> {
-        match self.stashed_char.take() {
-            None => self.char_indexes.next(),
-            Some((index, char)) => Some((index, char))
-        }
+    fn next_byte(&mut self) -> Option<(usize, u8)> {
+        self.stashed_byte.take().or_else(|| self.byte_indexes.next())
     }
 }
 
+pub type Fragment<'a> = Result<Token<'a>, Box<Error>>;
+
 impl<'a> Iterator for Tokeniser<'a> {
-    type Item = Result<Token<'a>, Error<'a>>;
+    type Item = Fragment<'a>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -83,115 +82,117 @@ impl<'a> Iterator for Tokeniser<'a> {
             return None;
         }
 
-        while let Some((index, char)) = self.next_char() {
+        while let Some((index, byte)) = self.next_byte() {
             self.location.column += 1;
             match self.mode {
                 Mode::Whitespace => {
-                    match char {
-                        '\\' => {
+                    match byte {
+                        b'\\' => {
                             self.error = true;
-                            return Some(Err(Error::UnexpectedCharacter(char, self.location.clone())))
+                            return Some(Err(Error::UnexpectedCharacter(byte as char, self.location.clone()).into()))
                         }
-                        '"' => {
+                        b'"' => {
                             self.mode = Mode::TextBody;
                         }
-                        '\'' => {
+                        b'\'' => {
                             self.mode = Mode::CharacterBody;
                         }
-                        '\t' | '\r' | ' ' => {}
-                        '\n' => {
+                        b'\t' | b'\r' | b' ' => {}
+                        b'\n' => {
                             self.location.line += 1;
                             self.location.column = 1;
                             return Some(Ok(Token::Newline))
                         }
-                        '(' => {
+                        b'(' => {
                             return Some(Ok(Token::Left(ListDelimiter::Paren)));
                         }
-                        ')' => {
+                        b')' => {
                             return Some(Ok(Token::Right(ListDelimiter::Paren)));
                         }
-                        '{' => {
+                        b'{' => {
                             return Some(Ok(Token::Left(ListDelimiter::Brace)));
                         }
-                        '}' => {
+                        b'}' => {
                             return Some(Ok(Token::Right(ListDelimiter::Brace)));
                         }
-                        '[' => {
+                        b'[' => {
                             return Some(Ok(Token::Left(ListDelimiter::Bracket)));
                         }
-                        ']' => {
+                        b']' => {
                             return Some(Ok(Token::Right(ListDelimiter::Bracket)));
                         }
-                        '-' => {
-                            return Some(Ok(Token::Dash));
+                        b'-' | b':' | b',' => {
+                            return Some(Ok(Token::Symbol(Byte(byte))));
                         }
-                        ':' => {
-                            return Some(Ok(Token::Colon));
-                        }
-                        ',' => {
-                            return Some(Ok(Token::Comma));
-                        }
-                        '0'..='9' => {
+                        b'0'..=b'9' => {
                             self.mode = Mode::Integer;
-                            self.token.push(index, char);
+                            self.token.push_byte(index, byte);
                         }
-                        '.' => {
+                        b'.' => {
                             self.mode = Mode::Decimal(0);
                         }
                         _ => {
                             self.mode = Mode::Ident;
-                            self.token.push(index, char);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                            }
                         }
                     }
                 }
                 Mode::TextBody => {
-                    match char {
-                        '\\' => {
+                    match byte {
+                        b'\\' => {
                             self.token.copy(self.bytes);
                             self.mode = Mode::TextEscape;
                         }
-                        '"' => {
+                        b'"' => {
                             let token = Token::Text(self.token.string(self.bytes));
                             self.token.clear();
                             self.mode = Mode::Whitespace;
                             return Some(Ok(token))
                         }
-                        '\n' => {
+                        b'\n' => {
                             self.error = true;
-                            return Some(Err(Error::UnterminatedLiteral(self.location.clone())))
+                            return Some(Err(Error::UnterminatedLiteral(self.location.clone()).into()))
                         }
                         _ => {
-                            self.token.push(index, char);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                            }
                         }
                     }
                 }
                 Mode::CharacterEscape | Mode::TextEscape => {
-                    match char {
-                        '\\' | '"' | '\'' => {
-                            self.token.push(0, char);
+                    match byte {
+                        b'\\' | b'"' | b'\'' => {
+                            self.token.push_byte(0, byte);
                         }
-                        'n' => {
-                            self.token.push(0, '\n');
+                        b'n' => {
+                            self.token.push_char(0, '\n');
                         }
-                        'r' => {
-                            self.token.push(0, '\r');
+                        b'r' => {
+                            self.token.push_char(0, '\r');
                         }
-                        't' => {
-                            self.token.push(0, '\t');
+                        b't' => {
+                            self.token.push_char(0, '\t');
                         }
-                        'x' => {
+                        b'x' => {
                             //TODO handle hex (e.g., \x7F)
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char, self.location.clone())))
+                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
                         }
-                        'u' => {
+                        b'u' => {
                             //TODO handle unicode (e.g., \u{7FFF})
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char, self.location.clone())))
+                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
                         }
                         _ => {
                             self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(char, self.location.clone())))
+                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
                         }
                     }
                     match self.mode {
@@ -208,17 +209,17 @@ impl<'a> Iterator for Tokeniser<'a> {
                     }
                 }
                 Mode::CharacterBody => {
-                    match char {
-                        '\\' => {
+                    match byte {
+                        b'\\' => {
                             self.mode = Mode::CharacterEscape;
                             self.token.copy(self.bytes);
                         }
-                        '\'' => {
+                        b'\'' => {
                             let mut chars = self.token.as_str(self.bytes).chars();
                             return match chars.next() {
                                 None => {
                                     self.error = true;
-                                    Some(Err(Error::EmptyCharacterLiteral(self.location.clone())))
+                                    Some(Err(Error::EmptyCharacterLiteral(self.location.clone()).into()))
                                 }
                                 Some(first_char) => {
                                     let token = Token::Character(first_char);
@@ -228,26 +229,30 @@ impl<'a> Iterator for Tokeniser<'a> {
                                 }
                             }
                         }
-                        '\n' => {
+                        b'\n' => {
                             self.error = true;
-                            return Some(Err(Error::UnterminatedLiteral(self.location.clone())))
+                            return Some(Err(Error::UnterminatedLiteral(self.location.clone()).into()))
                         }
                         _ => {
                             if self.token.is_empty() {
-                                self.token.push(index, char);
+                                if byte < 0x80 {
+                                    self.token.push_byte(index, byte);
+                                } else {
+                                    self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                                }
                             } else {
                                 self.error = true;
-                                return Some(Err(Error::UnexpectedCharacter(char, self.location.clone())))
+                                return Some(Err(Error::UnexpectedCharacter(byte as char, self.location.clone()).into()))
                             }
                         }
                     }
                 }
                 Mode::Integer => {
-                    match char {
-                        '_' => {
+                    match byte {
+                        b'_' => {
                             self.token.copy(self.bytes);
                         }
-                        '.' => {
+                        b'.' => {
                             let str = self.token.as_str(self.bytes);
                             match u128::from_str(str) {
                                 Ok(int) => {
@@ -256,60 +261,70 @@ impl<'a> Iterator for Tokeniser<'a> {
                                 }
                                 Err(err) => {
                                     self.error = true;
-                                    return Some(Err(Error::UnparsableInteger(self.token.string(self.bytes), err, self.location.clone())))
+                                    return Some(Err(Error::UnparsableInteger(str.to_string(), err, self.location.clone()).into()))
                                 }
                             }
                         }
-                        ')' | ']' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
+                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
                             let str = self.token.as_str(self.bytes);
                             return match u128::from_str(str) {
                                 Ok(whole) => {
                                     let token = Token::Integer(whole);
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
-                                    self.stashed_char = Some((index, char)); // don't consume the char
+                                    self.stashed_byte = Some((index, byte)); // don't consume the char
                                     self.location.column -= 1;
                                     Some(Ok(token))
                                 }
                                 Err(err) => {
-                                    Some(Err(Error::UnparsableInteger(self.token.string(self.bytes), err, self.location.clone())))
+                                    self.error = true;
+                                    Some(Err(Error::UnparsableInteger(str.to_string(), err, self.location.clone()).into()))
                                 }
                             }
                         }
                         _ => {
-                            self.token.push(index, char);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                            }
                         }
                     }
                 }
                 Mode::Decimal(whole) => {
-                    match char {
-                        '_' => {
+                    match byte {
+                        b'_' => {
                             self.token.copy(self.bytes);
                         }
-                        ')' | ']' | '}' | ':' | '-' | ',' | '\n' | '\t' | '\r' | ' ' => {
+                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
                             let str = self.token.as_str(self.bytes);
                             return match u128::from_str(str) {
                                 Ok(fractional) => {
                                     let token = Token::Decimal(whole, fractional, self.token.len().try_into().expect("fractional part is too long"));
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
-                                    self.stashed_char = Some((index, char)); // don't consume the char
+                                    self.stashed_byte = Some((index, byte)); // don't consume the char
                                     self.location.column -= 1;
                                     Some(Ok(token))
                                 }
                                 Err(err) => {
-                                    Some(Err(Error::UnparsableDecimal(whole, self.token.string(self.bytes), err, self.location.clone())))
+                                    self.error = true;
+                                    Some(Err(Error::UnparsableDecimal(whole, str.to_string(), err, self.location.clone()).into()))
                                 }
                             }
                         }
                         _ => {
-                            self.token.push(index, char);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                            }
                         }
                     }
                 }
                 Mode::Ident => {
-                    match char {
-                        ')' | ']' | '}' | ':' | '-'  | ',' | '\n' | '\t' | '\r' | ' ' => {
+                    match byte {
+                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
                             let str = self.token.as_str(self.bytes);
                             let token = match str {
                                 "true" => {
@@ -324,18 +339,43 @@ impl<'a> Iterator for Tokeniser<'a> {
                             };
                             self.token.clear();
                             self.mode = Mode::Whitespace;
-                            self.stashed_char = Some((index, char)); // don't consume the char
+                            self.stashed_byte = Some((index, byte)); // don't consume the char
                             self.location.column -= 1;
                             return Some(Ok(token))
                         }
                         _ => {
-                            self.token.push(index, char);
+                            if byte < 0x80 {
+                                self.token.push_byte(index, byte);
+                            } else {
+                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                            }
                         }
                     }
                 }
             }
         }
         None
+    }
+}
+
+#[inline(never)]
+pub fn read_grapheme(b0: u8, bytes: &mut NewlineTerminatedBytes) -> Grapheme {
+    __read_grapheme(b0, bytes).unwrap()
+}
+
+#[inline(always)]
+fn __read_grapheme(b0: u8, bytes: &mut NewlineTerminatedBytes) -> Option<Grapheme> {
+    let (_, b1) = bytes.next()?;
+    if b0 >= 0xE0 {
+        let (_, b2) = bytes.next()?;
+        if b0 >= 0xF0 {
+            let (_, b3) = bytes.next()?;
+            Some(Grapheme([b0, b1, b2, b3]))
+        } else {
+            Some(Grapheme([b0, b1, b2, 0]))
+        }
+    } else {
+        Some(Grapheme([b0, b1, 0, 0]))
     }
 }
 

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use crate::graphemes::Grapheme;
 
 #[derive(Default, Debug)]
 pub struct CharBuffer {
@@ -26,7 +27,7 @@ impl CharBuffer {
     }
 
     #[inline]
-    pub fn push(&mut self, offset: usize, char: char) {
+    pub fn push_char(&mut self, offset: usize, char: char) {
         match self.mode {
             Mode::Slice => {
                 if self.len == 0 {
@@ -37,7 +38,46 @@ impl CharBuffer {
                 self.len += char.len_utf8();
             }
             Mode::Copy => {
-                self.copy.push(char);
+                self.push_to_copy(char)
+            }
+        }
+    }
+
+    #[inline(never)]
+    fn push_to_copy(&mut self, char: char) {
+        self.copy.push(char);
+    }
+
+    #[inline]
+    pub fn push_grapheme(&mut self, offset: usize, grapheme: Grapheme) {
+        match self.mode {
+            Mode::Slice => {
+                if self.len == 0 {
+                    self.offset = offset;
+                } else {
+                    debug_assert_eq!(self.offset + self.len, offset, "wrong character offset: expected {}, got {}", self.offset + self.len, offset);
+                }
+                self.len += grapheme.len_utf8();
+            }
+            Mode::Copy => {
+                self.push_to_copy(char::from(grapheme))
+            }
+        }
+    }
+
+    #[inline]
+    pub fn push_byte(&mut self, offset: usize, byte: u8) {
+        match self.mode {
+            Mode::Slice => {
+                if self.len == 0 {
+                    self.offset = offset;
+                } else {
+                    debug_assert_eq!(self.offset + self.len, offset, "wrong character offset: expected {}, got {}", self.offset + self.len, offset);
+                }
+                self.len += 1;
+            }
+            Mode::Copy => {
+                self.push_to_copy(byte as char)
             }
         }
     }
@@ -133,10 +173,10 @@ mod tests {
         let str = "hiµ\n";
         let bytes = str.as_bytes();
 
-        buf.push(0, 'h');
+        buf.push_char(0, 'h');
         assert!(!buf.is_empty());
         assert_eq!(buf.len(), 1);
-        buf.push(1, 'i');
+        buf.push_char(1, 'i');
         assert!(matches!(buf.mode, Mode::Slice));
         println!("buf: {buf:?}");
         assert_eq!("hi", buf.as_str(&bytes));
@@ -149,8 +189,8 @@ mod tests {
         assert_eq!(buf.len(), 0);
         assert_eq!("", buf.as_str(&bytes));
 
-        buf.push(2, 'µ');
-        buf.push(4, '\n');
+        buf.push_char(2, 'µ');
+        buf.push_char(4, '\n');
         println!("buf: {buf:?}");
         assert_eq!("µ\n", buf.as_str(&bytes));
     }
@@ -161,8 +201,8 @@ mod tests {
         let str = "hiµ\nhello";
         let bytes = str.as_bytes();
 
-        buf.push(0, 'h');
-        buf.push(1, 'i');
+        buf.push_char(0, 'h');
+        buf.push_char(1, 'i');
         println!("buf: {buf:?}");
         buf.copy(&bytes);
         assert!(!buf.is_empty());
@@ -172,8 +212,8 @@ mod tests {
         assert_eq!("hi", buf.string(&bytes));
         assert!(matches!(buf.string(&bytes), Cow::Owned(_)));
 
-        buf.push(0, 'µ');
-        buf.push(0, '\n');
+        buf.push_char(0, 'µ');
+        buf.push_char(0, '\n');
         assert_eq!("hiµ\n", buf.as_str(&bytes));
         assert_eq!("hiµ\n", buf.string(&bytes));
         assert!(matches!(buf.string(&bytes), Cow::Owned(_)));
@@ -186,8 +226,8 @@ mod tests {
         assert_eq!("", buf.string(&bytes));
         assert!(matches!(buf.string(&bytes), Cow::Borrowed(_)));
 
-        buf.push(5, 'h');
-        buf.push(6, 'e');
+        buf.push_char(5, 'h');
+        buf.push_char(6, 'e');
         assert!(matches!(buf.mode, Mode::Slice));
         assert_eq!("he", buf.as_str(&bytes));
 
@@ -197,15 +237,15 @@ mod tests {
         assert!(matches!(buf.mode, Mode::Copy));
         assert_eq!("he", buf.as_str(&bytes));
 
-        buf.push(0, 'l');
+        buf.push_char(0, 'l');
         assert!(matches!(buf.mode, Mode::Copy));
         assert_eq!("hel", buf.as_str(&bytes));
 
         buf.clear();
         assert_eq!("", buf.as_str(&bytes));
 
-        buf.push(2, 'µ');
-        buf.push(4, '\n');
+        buf.push_char(2, 'µ');
+        buf.push_char(4, '\n');
         assert!(matches!(buf.mode, Mode::Slice));
         assert_eq!("µ\n", buf.as_str(&bytes));
     }
@@ -214,7 +254,7 @@ mod tests {
     #[should_panic(expected = "wrong character offset: expected 1, got 2")]
     fn slice_push_wrong_offset() {
         let mut buf = CharBuffer::default();
-        buf.push(0, 'h');
-        buf.push(2, 'i');
+        buf.push_char(0, 'h');
+        buf.push_char(2, 'i');
     }
 }

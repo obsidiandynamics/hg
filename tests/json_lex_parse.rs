@@ -1,7 +1,7 @@
 use hg::lexer::Tokeniser;
 use hg::parser::parse;
-use hg::token::Token;
-use hg::token::Token::{Boolean, Dash, Decimal, Ident, Integer, Text};
+use hg::token::{Byte, Token};
+use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
 use hg::{phrase, verse};
@@ -11,7 +11,7 @@ fn tok_ok(str: &str) -> Vec<Token> {
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
-    parse(tokens.into()).unwrap()
+    parse(tokens.into_iter().map(Ok)).unwrap()
 }
 
 fn string(value: &str) -> Node {
@@ -35,7 +35,7 @@ fn null() -> Node<'static> {
 }
 
 fn negative(value: impl Into<Node<'static>>) -> Node<'static> {
-    Prefix(Dash, Box::new(value.into()))
+    Prefix(Symbol(Byte(b'-')), Box::new(value.into()))
 }
 
 fn key_value(key: &'static str, value: Node<'static>) -> Node<'static> {

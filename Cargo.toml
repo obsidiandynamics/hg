@@ -13,5 +13,13 @@ thiserror = "2.0.12"
 criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [[bench]]
+name = "cri_graphemes"
+harness = false
+
+[[bench]]
+name = "cri_chars"
+harness = false
+
+[[bench]]
 name = "cri_json"
 harness = false
