@@ -31,9 +31,9 @@ const fn is_symbol(byte: u8) -> bool {
 }
 
 #[derive(Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
-pub struct SymbolString(Cow<'static, [u8]>);
+pub struct SymbolString<'a>(Cow<'a, [u8]>);
 
-impl Display for SymbolString {
+impl Display for SymbolString<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut buf = String::from("[");
         for (index, byte) in self.0.iter().enumerate() {
@@ -47,82 +47,134 @@ impl Display for SymbolString {
 }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-#[error("invalid symbol {0:#x} at offset {1}")]
-pub struct InvalidSymbol(u8, usize);
+pub enum ParseError {
+    #[error("invalid symbol {0:#x} at offset {1}")]
+    InvalidSymbol(u8, usize),
 
-impl TryFrom<&'static str> for SymbolString {
-    type Error = InvalidSymbol;
+    #[error("symbol string should be at least 2 bytes long")]
+    TooShort
+}
+
+impl TryFrom<&'static str> for SymbolString<'_> {
+    type Error = ParseError;
 
     fn try_from(str: &'static str) -> Result<Self, Self::Error> {
-        match str.bytes().enumerate().find(|(_, byte)| !is_symbol(*byte)) {
-            None => Ok(SymbolString(str.as_bytes().into())),
-            Some((index, invalid_byte)) => Err(InvalidSymbol(invalid_byte, index))
+        if str.len() >= 2 {
+            match str.bytes().enumerate().find(|(_, byte)| !is_symbol(*byte)) {
+                None => Ok(SymbolString(str.as_bytes().into())),
+                Some((index, invalid_byte)) => Err(ParseError::InvalidSymbol(invalid_byte, index))
+            }
+        } else {
+            Err(ParseError::TooShort)
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-pub enum Error {
+pub enum Error<'a> {
     #[error("duplicate {0}")]
-    Duplicate(SymbolString)
+    Duplicate(SymbolString<'a>),
+
+    #[error("missing prefix for {0}")]
+    MissingPrefix(SymbolString<'a>)
 }
 
 #[derive(Debug)]
-pub struct SymbolTable(Cow<'static, [SymbolString]>);
+pub struct SymbolTable<'a>(Cow<'a, [SymbolString<'a>]>);
 
-impl SymbolTable {
+impl<'a> SymbolTable<'a> {
     pub fn empty() -> Self {
         SymbolTable(Cow::default())
     }
 
-    pub fn add(&mut self, symbol: SymbolString) -> Result<(), Error> {
-        match self.0.binary_search(&symbol) {
-            Ok(_) => {
-                Err(Error::Duplicate(symbol))
+    pub fn contains(&self, symbol: &SymbolString) -> bool {
+        self.0.binary_search(symbol).is_ok()
+    }
+
+    pub fn add(&mut self, symbol: SymbolString<'a>) -> Result<(), Error> {
+        let prefix_exists = match &symbol.0 {
+            Cow::Borrowed(slice) => {
+                if slice.len() == 2 {
+                    true
+                } else {
+                    let prefix = &slice[..slice.len() - 1];
+                    self.contains(&SymbolString(prefix.into()))
+                }
             }
-            Err(index) => {
-                self.0.to_mut().insert(index, symbol);
-                Ok(())
+            Cow::Owned(vec) => {
+                let slice = &*vec;
+                if slice.len() == 2 {
+                    true
+                } else {
+                    let prefix = &slice[..slice.len() - 1];
+                    self.contains(&SymbolString(prefix.into()))
+                }
             }
+        };
+        if prefix_exists {
+            match self.0.binary_search(&symbol) {
+                Ok(_) => {
+                    Err(Error::Duplicate(symbol))
+                }
+                Err(index) => {
+                    self.0.to_mut().insert(index, symbol);
+                    Ok(())
+                }
+            }
+        } else {
+            Err(Error::MissingPrefix(symbol))
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use crate::lexer::symbols::{SymbolString, SymbolTable, SYMBOL_MAP};
 
     #[test]
     fn symbol_parse_valid() {
         SymbolString::try_from(":@#").unwrap();
     }
-    
+
     #[test]
-    fn symbol_parse_invalid() {
+    fn symbol_parse_invalid_symbol_err() {
         let err = SymbolString::try_from(":@a#").unwrap_err();
         assert_eq!("invalid symbol 0x61 at offset 2", err.to_string());
     }
 
     #[test]
-    fn symbols_add_new() -> Result<(), Box<dyn Error>> {
-        let mut symbols = SymbolTable::empty();
-        symbols.add(SymbolString::try_from(":")?)?;
-        symbols.add(SymbolString::try_from("::")?)?;
-        symbols.add(SymbolString::try_from("@")?)?;
-        symbols.add(SymbolString::try_from("@#")?)?;
-        symbols.add(SymbolString::try_from("@?")?)?;
-        println!("symbols: {symbols:?}");
-        Ok(())
+    fn symbol_parse_too_short_err() {
+        let err = SymbolString::try_from(":").unwrap_err();
+        assert_eq!("symbol string should be at least 2 bytes long", err.to_string());
     }
 
     #[test]
-    fn symbols_add_duplicate() {
+    fn symbols_add_new() {
         let mut symbols = SymbolTable::empty();
-        symbols.add(SymbolString::try_from(":").unwrap()).unwrap();
-        symbols.add(SymbolString::try_from(":?").unwrap()).unwrap();
-        let err = symbols.add(SymbolString::try_from(":?").unwrap()).unwrap_err();
-        assert_eq!("duplicate [0x3a, 0x3f]", err.to_string());
+        symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
+        symbols.add(SymbolString::try_from(":::").unwrap()).unwrap();
+        symbols.add(SymbolString::try_from("@#").unwrap()).unwrap();
+        symbols.add(SymbolString::try_from("@?").unwrap()).unwrap();
+        symbols.add(SymbolString::try_from("@?$").unwrap()).unwrap();
+        println!("symbols: {symbols:#?}");
+    }
+
+    #[test]
+    fn symbols_add_duplicate_err() {
+        let mut symbols = SymbolTable::empty();
+        symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
+        symbols.add(SymbolString::try_from("::?").unwrap()).unwrap();
+        let err = symbols.add(SymbolString::try_from("::?").unwrap()).unwrap_err();
+        assert_eq!("duplicate [0x3a, 0x3a, 0x3f]", err.to_string());
+    }
+
+    #[test]
+    fn symbols_add_missing_prefix_err() {
+        let mut symbols = SymbolTable::empty();
+        symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
+        symbols.add(SymbolString::try_from("::?").unwrap()).unwrap();
+        let err = symbols.add(SymbolString::try_from("::%").unwrap()).unwrap_err();
+        assert_eq!("missing prefix for [0x3a, 0x3a, 0x3f]", err.to_string());
     }
 
     const EXPECTED_SYMBOLS: &str = "!#$%&*+,-./:;<=>?@^`|~";
