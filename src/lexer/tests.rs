@@ -5,7 +5,7 @@ use crate::lexer::{Error, Tokeniser};
 use crate::lexer::tests::Ownership::{Borrowed, NA, Owned};
 use crate::symbols::SymbolTable;
 use crate::token::{Ascii, AsciiSlice, ListDelimiter, Token};
-use crate::token::ListDelimiter::Brace;
+use crate::token::ListDelimiter::{Brace, Bracket};
 use crate::token::Token::{Boolean, Character, Symbol, Decimal, Ident, Left, Right, ExtendedSymbol};
 
 fn tok_ok(str: &str) -> Vec<Token> {
@@ -311,6 +311,13 @@ fn decimal_implied_leading_zero() {
 }
 
 #[test]
+fn symbol_and_decimal() {
+    let str = r#". .123"#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Symbol(Ascii(b'.')), Decimal(0, 123, 3), Newline], tokens);
+}
+
+#[test]
 fn decimal_colon_terminated() {
     let str = r#"1_234_567_890.0_123_456_789:"#;
     let tokens = tok_ok(str);
@@ -395,10 +402,10 @@ fn ident_starts_with_utf8() {
 
 #[test]
 fn ident_ends_with_utf8() {
-    let str = r#"first secondµℝ💣
+    let str = r#"first second_µℝ💣
     third"#;
     let tokens = tok_ok(str);
-    assert_eq!(vec![Ident("first".into()), Ident("secondµℝ💣".into()), Newline, Ident("third".into()), Newline], tokens);
+    assert_eq!(vec![Ident("first".into()), Ident("second_µℝ💣".into()), Newline, Ident("third".into()), Newline], tokens);
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
 }
 
@@ -439,16 +446,16 @@ fn mixed_flat_sequence_of_tokens() {
 }
 
 #[test]
-fn mixed_container_around_list() {
-    let str = r#"{()}"#;
+fn mixed_list_around_list() {
+    let str = r#"{([])}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![
-        Left(Brace), Left(Paren), Right(Paren), Right(Brace), Newline
+        Left(Brace), Left(Paren), Left(Bracket), Right(Bracket), Right(Paren), Right(Brace), Newline
     ], tokens);
 }
 
 #[test]
-fn mixed_container_nested() {
+fn mixed_list_nested() {
     let str = r#"{hello {"world"
     }}"#;
     let tokens = tok_ok(str);
@@ -494,7 +501,7 @@ fn mixed_cons_multiple() {
 }
 
 #[test]
-fn mixed_cons_inside_container() {
+fn mixed_cons_inside_list() {
     let str = r#"{1:2 3:4}"#;
     let tokens = tok_ok(str);
     assert_eq!(vec![

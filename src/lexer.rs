@@ -99,12 +99,73 @@ impl<'a, 's> Tokeniser<'a, 's> {
                     self.stashed_byte = Some((index, byte)); // don't consume the char
                     return Some(self.make_symbol())
                 }
+            } else if self.token.len() == 1 && self.token.first_byte(&self.bytes) == b'.' && byte.is_ascii_digit() {
+                self.token.clear();
+                self.stashed_byte = Some((index, byte)); // don't consume the char
+                self.mode = Mode::Decimal(0);
+                return None
             } else {
                 self.stashed_byte = Some((index, byte)); // don't consume the char
                 return Some(self.make_symbol())
             }
         }
-        None
+        unreachable!() // since '\n' is guaranteed to terminate the stream, which is handled in the loop above
+    }
+    
+    #[inline]
+    fn make_integer(&mut self) -> Option<Fragment<'a>> {
+        let str = self.token.as_str(self.bytes);
+        match u128::from_str(str) {
+            Ok(whole) => {
+                let token = Token::Integer(whole);
+                self.token.clear();
+                self.mode = Mode::Whitespace;
+                self.location.column -= 1;
+                Some(Ok(token))
+            }
+            Err(err) => {
+                self.error = true;
+                Some(Err(Error::UnparsableInteger(str.to_string(), err, self.location.clone()).into()))
+            }
+        }
+    }
+    
+    #[inline]
+    fn make_decimal(&mut self, whole: u128) -> Option<Fragment<'a>> {
+        let str = self.token.as_str(self.bytes);
+        match u128::from_str(str) {
+            Ok(fractional) => {
+                let token = Token::Decimal(whole, fractional, self.token.len().try_into().expect("fractional part is too long"));
+                self.token.clear();
+                self.mode = Mode::Whitespace;
+                self.location.column -= 1;
+                Some(Ok(token))
+            }
+            Err(err) => {
+                self.error = true;
+                Some(Err(Error::UnparsableDecimal(whole, str.to_string(), err, self.location.clone()).into()))
+            }
+        }
+    }
+    
+    #[inline]
+    fn make_ident(&mut self) -> Option<Fragment<'a>> {
+        let str = self.token.as_str(self.bytes);
+        let token = match str {
+            "true" => {
+                Token::Boolean(true)
+            }
+            "false" => {
+                Token::Boolean(false)
+            }
+            _ => {
+                Token::Ident(self.token.string(self.bytes))
+            }
+        };
+        self.token.clear();
+        self.mode = Mode::Whitespace;
+        self.location.column -= 1;
+        Some(Ok(token))
     }
 }
 
@@ -162,12 +223,8 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                             self.mode = Mode::Integer;
                             self.token.push_byte(index, byte);
                         }
-                        b'.' => {
-                            self.mode = Mode::Decimal(0);
-                        }
                         _ => {
                             if is_symbol(byte) {
-                                //println!("start b'{}'", byte as char);
                                 self.token.push_byte(index, byte);
                                 match self.parse_symbol() {
                                     None => {}
@@ -310,26 +367,18 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                                 }
                             }
                         }
-                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
-                            let str = self.token.as_str(self.bytes);
-                            return match u128::from_str(str) {
-                                Ok(whole) => {
-                                    let token = Token::Integer(whole);
-                                    self.token.clear();
-                                    self.mode = Mode::Whitespace;
-                                    self.stashed_byte = Some((index, byte)); // don't consume the char
-                                    self.location.column -= 1;
-                                    Some(Ok(token))
-                                }
-                                Err(err) => {
-                                    self.error = true;
-                                    Some(Err(Error::UnparsableInteger(str.to_string(), err, self.location.clone()).into()))
-                                }
-                            }
+                        b')' | b']' | b'}' | b'\n' | b'\t' | b'\r' | b' ' => {
+                            self.stashed_byte = Some((index, byte)); // don't consume the char
+                            return self.make_integer();
                         }
                         _ => {
                             if byte < 0x80 {
-                                self.token.push_byte(index, byte);
+                                if is_symbol(byte) {
+                                    self.stashed_byte = Some((index, byte)); // don't consume the char
+                                    return self.make_integer(); 
+                                } else {
+                                    self.token.push_byte(index, byte);
+                                }
                             } else {
                                 self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
                             }
@@ -341,26 +390,18 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                         b'_' => {
                             self.token.copy(self.bytes);
                         }
-                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
-                            let str = self.token.as_str(self.bytes);
-                            return match u128::from_str(str) {
-                                Ok(fractional) => {
-                                    let token = Token::Decimal(whole, fractional, self.token.len().try_into().expect("fractional part is too long"));
-                                    self.token.clear();
-                                    self.mode = Mode::Whitespace;
-                                    self.stashed_byte = Some((index, byte)); // don't consume the char
-                                    self.location.column -= 1;
-                                    Some(Ok(token))
-                                }
-                                Err(err) => {
-                                    self.error = true;
-                                    Some(Err(Error::UnparsableDecimal(whole, str.to_string(), err, self.location.clone()).into()))
-                                }
-                            }
+                        b')' | b']' | b'}' | b'\n' | b'\t' | b'\r' | b' ' => {
+                            self.stashed_byte = Some((index, byte)); // don't consume the char
+                            return self.make_decimal(whole)
                         }
                         _ => {
                             if byte < 0x80 {
-                                self.token.push_byte(index, byte);
+                                if is_symbol(byte) {
+                                    self.stashed_byte = Some((index, byte)); // don't consume the char
+                                    return self.make_decimal(whole)
+                                } else {
+                                    self.token.push_byte(index, byte);
+                                }
                             } else {
                                 self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
                             }
@@ -369,31 +410,30 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                 }
                 Mode::Ident => {
                     match byte {
-                        b')' | b']' | b'}' | b':' | b'-' | b',' | b'\n' | b'\t' | b'\r' | b' ' => {
-                            let str = self.token.as_str(self.bytes);
-                            let token = match str {
-                                "true" => {
-                                    Token::Boolean(true)
-                                }
-                                "false" => {
-                                    Token::Boolean(false)
-                                }
-                                _ => {
-                                    Token::Ident(self.token.string(self.bytes))
-                                }
-                            };
-                            self.token.clear();
-                            self.mode = Mode::Whitespace;
+                        b')' | b']' | b'}' | b'\n' | b'\t' | b'\r' | b' ' => {
                             self.stashed_byte = Some((index, byte)); // don't consume the char
-                            self.location.column -= 1;
-                            return Some(Ok(token))
+                            return self.make_ident()
                         }
                         _ => {
                             if byte < 0x80 {
-                                self.token.push_byte(index, byte);
+                                if is_symbol(byte) {
+                                    self.stashed_byte = Some((index, byte)); // don't consume the char
+                                    return self.make_ident()
+                                } else {
+                                    self.token.push_byte(index, byte);
+                                }
                             } else {
                                 self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
                             }
+
+                            // if is_symbol(byte) {
+                            //     self.stashed_byte = Some((index, byte)); // don't consume the char
+                            //     return self.make_ident()
+                            // } else if byte < 0x80 {
+                            //     self.token.push_byte(index, byte);
+                            // } else {
+                            //     self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                            // }
                         }
                     }
                 }
