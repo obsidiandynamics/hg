@@ -1,7 +1,7 @@
 use crate::parser::{parse, Error};
 use crate::{phrase, verse};
 use crate::token::ListDelimiter::{Brace, Paren};
-use crate::token::{Byte, Token};
+use crate::token::{Ascii, Token};
 use crate::token::Token::{Symbol, Decimal, Ident, Integer, Newline, Left, Right, Text};
 use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
@@ -36,8 +36,8 @@ fn unterminated_phrase_err() {
 
 #[test]
 fn unexpected_token_err() {
-    let err = parse_err(vec![Symbol(Byte(b','))]);
-    assert_eq!("unexpected token Symbol(Byte(b','))", err.to_string());
+    let err = parse_err(vec![Symbol(Ascii(b','))]);
+    assert_eq!("unexpected token Symbol(Ascii(b','))", err.to_string());
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn paren_list_with_one_verse_and_phrase_with_one_node() {
 
 #[test]
 fn paren_list_with_one_verse_trailing_comma() {
-    let verse = parse_ok(vec![Left(Paren), Integer(1), Symbol(Byte(b',')), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Left(Paren), Integer(1), Symbol(Ascii(b',')), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
@@ -222,7 +222,7 @@ fn paren_list_with_one_verse_and_phrase_with_many_nodes() {
 
 #[test]
 fn paren_list_with_many_verses() {
-    let verse = parse_ok(vec![Left(Paren), Integer(1), Integer(2), Symbol(Byte(b',')), Integer(3), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Left(Paren), Integer(1), Integer(2), Symbol(Ascii(b',')), Integer(3), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
@@ -239,7 +239,7 @@ fn paren_list_with_many_verses() {
 
 #[test]
 fn list_empty_verse_err() {
-    let err = parse_err(vec![Left(Paren), Integer(1), Symbol(Byte(b',')), Newline, Newline, Symbol(Byte(b',')), Right(Paren)]);
+    let err = parse_err(vec![Left(Paren), Integer(1), Symbol(Ascii(b',')), Newline, Newline, Symbol(Ascii(b',')), Right(Paren)]);
     assert_eq!("empty verse", err.to_string());
 }
 
@@ -257,7 +257,7 @@ fn paren_list_expected_brace_token_err() {
 
 #[test]
 fn cons_single() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Byte(b':')), Integer(2), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2))]),
@@ -267,7 +267,7 @@ fn cons_single() {
 
 #[test]
 fn cons_single_long_tail() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2)), Raw(Integer(3))]),
@@ -277,7 +277,7 @@ fn cons_single_long_tail() {
 
 #[test]
 fn cons_multiple() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Symbol(Byte(b':')), Integer(4), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(Box::new(Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2)), Raw(Integer(3))])), phrase![Raw(Integer(4))]),
@@ -287,7 +287,7 @@ fn cons_multiple() {
 
 #[test]
 fn cons_multiple_trailing_empty_segment() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Symbol(Byte(b':')), Integer(4), Symbol(Byte(b':')), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Symbol(Ascii(b':')), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(Box::new(Cons(Box::new(Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2)), Raw(Integer(3))])), phrase![Raw(Integer(4))])), phrase![]),
@@ -297,7 +297,7 @@ fn cons_multiple_trailing_empty_segment() {
 
 #[test]
 fn cons_with_container_tail() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Byte(b':')), Left(Brace), Integer(2), Newline, Integer(3), Right(Brace), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Left(Brace), Integer(2), Newline, Integer(3), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(
@@ -321,7 +321,7 @@ fn cons_with_container_tail() {
 
 #[test]
 fn cons_with_list_tail() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Byte(b':')), Left(Paren), Integer(2), Symbol(Byte(b',')), Integer(3), Integer(4), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Left(Paren), Integer(2), Symbol(Ascii(b',')), Integer(3), Integer(4), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(
@@ -345,7 +345,7 @@ fn cons_with_list_tail() {
 
 #[test]
 fn cons_inside_brace_list() {
-    let verse = parse_ok(vec![Left(Brace), Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Symbol(Byte(b':')), Integer(4), Right(Brace), Newline]);
+    let verse = parse_ok(vec![Left(Brace), Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
@@ -367,7 +367,7 @@ fn cons_inside_brace_list() {
 
 #[test]
 fn cons_inside_list() {
-    let verse = parse_ok(vec![Left(Paren), Integer(1), Symbol(Byte(b':')), Integer(2), Integer(3), Symbol(Byte(b':')), Integer(4), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Left(Paren), Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
@@ -389,48 +389,48 @@ fn cons_inside_list() {
 
 #[test]
 fn cons_empty_starting_segment_err() {
-    let err = parse_err(vec![Symbol(Byte(b':')), Integer(2)]);
+    let err = parse_err(vec![Symbol(Ascii(b':')), Integer(2)]);
     assert_eq!("empty cons segment", err.to_string());
 }
 
 #[test]
 fn cons_empty_intermediate_segment_err() {
-    let err = parse_err(vec![Integer(1), Symbol(Byte(b':')), Integer(2), Symbol(Byte(b':')), Symbol(Byte(b':'))]);
+    let err = parse_err(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Symbol(Ascii(b':')), Symbol(Ascii(b':'))]);
     assert_eq!("empty cons segment", err.to_string());
 }
 
 #[test]
 fn cons_unterminated_err() {
-    let err = parse_err(vec![Integer(1), Symbol(Byte(b':')), Integer(2)]);
+    let err = parse_err(vec![Integer(1), Symbol(Ascii(b':')), Integer(2)]);
     assert_eq!("unterminated cons", err.to_string());
 }
 
 #[test]
 fn prefix_with_integer() {
-    let verse = parse_ok(vec![Symbol(Byte(b'-')), Integer(1), Newline]);
+    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Integer(1), Newline]);
     assert_eq!(verse![
         phrase![
-            Prefix(Symbol(Byte(b'-')), Box::new(Raw(Integer(1))))
+            Prefix(Symbol(Ascii(b'-')), Box::new(Raw(Integer(1))))
         ]
     ], verse);
 }
 
 #[test]
 fn prefix_with_decimal() {
-    let verse = parse_ok(vec![Symbol(Byte(b'-')), Decimal(10, 5, 2), Newline]);
+    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Decimal(10, 5, 2), Newline]);
     assert_eq!(verse![
         phrase![  
-            Prefix(Symbol(Byte(b'-')), Box::new(Raw(Decimal(10, 5, 2))))
+            Prefix(Symbol(Ascii(b'-')), Box::new(Raw(Decimal(10, 5, 2))))
         ]
     ], verse);
 }
 
 #[test]
 fn prefix_with_container() {
-    let verse = parse_ok(vec![Symbol(Byte(b'-')), Left(Brace), Integer(1), Newline, Integer(2), Right(Brace), Newline]);
+    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Left(Brace), Integer(1), Newline, Integer(2), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
-            Prefix(Symbol(Byte(b'-')), Box::new(List(vec![
+            Prefix(Symbol(Ascii(b'-')), Box::new(List(vec![
                 verse![
                     phrase![
                         Raw(Integer(1))
@@ -446,11 +446,11 @@ fn prefix_with_container() {
 
 #[test]
 fn prefix_with_list() {
-    let verse = parse_ok(vec![Symbol(Byte(b'-')), Left(Paren), Integer(1), Newline, Integer(2), Symbol(Byte(b',')), Integer(3), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Left(Paren), Integer(1), Newline, Integer(2), Symbol(Ascii(b',')), Integer(3), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             Prefix(
-                Symbol(Byte(b'-')), 
+                Symbol(Ascii(b'-')), 
                 Box::new(List(
                     vec![
                         verse![
@@ -468,14 +468,14 @@ fn prefix_with_list() {
 
 #[test]
 fn prefix_inside_of_list() {
-    let verse = parse_ok(vec![Left(Paren), Symbol(Byte(b'-')), Integer(42), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Left(Paren), Symbol(Ascii(b'-')), Integer(42), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
                 verse![
                     phrase![
                         Prefix(
-                            Symbol(Byte(b'-')),
+                            Symbol(Ascii(b'-')),
                             Box::new(Raw(Integer(42))),
                         )
                     ]
@@ -487,14 +487,14 @@ fn prefix_inside_of_list() {
 
 #[test]
 fn prefix_inside_of_cons() {
-    let verse = parse_ok(vec![Text("key".into()), Symbol(Byte(b':')), Symbol(Byte(b'-')), Integer(42), Newline]);
+    let verse = parse_ok(vec![Text("key".into()), Symbol(Ascii(b':')), Symbol(Ascii(b'-')), Integer(42), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(
                 Box::new(Raw(Text("key".into()))),
                 phrase![                 
                     Prefix(
-                        Symbol(Byte(b'-')),
+                        Symbol(Ascii(b'-')),
                         Box::new(Raw(Integer(42))),
                     )
                 ]
@@ -505,12 +505,12 @@ fn prefix_inside_of_cons() {
 
 #[test]
 fn prefix_unterminated_err() {
-    let err = parse_err(vec![Symbol(Byte(b'-'))]);
+    let err = parse_err(vec![Symbol(Ascii(b'-'))]);
     assert_eq!("unterminated prefix", err.to_string());
 }
 
 #[test]
 fn prefix_unexpected_token_err() {
-    let err = parse_err(vec![Symbol(Byte(b'-')), Symbol(Byte(b'-'))]);
-    assert_eq!("unexpected token Symbol(Byte(b'-'))", err.to_string());
+    let err = parse_err(vec![Symbol(Ascii(b'-')), Symbol(Ascii(b'-'))]);
+    assert_eq!("unexpected token Symbol(Ascii(b'-'))", err.to_string());
 }

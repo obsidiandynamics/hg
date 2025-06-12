@@ -1,10 +1,12 @@
+use std::borrow::Cow;
 use crate::char_buffer::CharBuffer;
-use crate::token::{Byte, ListDelimiter, Location, Token};
+use crate::token::{Ascii, AsciiSlice, ListDelimiter, Location, Token};
 use std::io;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use crate::graphemes::Grapheme;
 use crate::newline_terminated_bytes::NewlineTerminatedBytes;
+use crate::symbols::{is_symbol, SymbolString, SymbolTable};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -41,7 +43,8 @@ enum Mode {
     Ident
 }
 
-pub struct Tokeniser<'a> {
+pub struct Tokeniser<'a, 's> {
+    symbol_table: SymbolTable<'s>,
     bytes: &'a [u8],
     byte_indexes: NewlineTerminatedBytes<'a>,
     token: CharBuffer,
@@ -51,10 +54,11 @@ pub struct Tokeniser<'a> {
     error: bool
 }
 
-impl<'a> Tokeniser<'a> {
+impl<'a, 's> Tokeniser<'a, 's> {
     #[inline]
-    pub fn new(str: &'a str) -> Self {
+    pub fn new(str: &'a str, symbol_table: SymbolTable<'s>) -> Self {
         Self {
+            symbol_table,
             bytes: str.as_bytes(),
             byte_indexes:  NewlineTerminatedBytes::new(str.bytes()),
             token: CharBuffer::default(),
@@ -69,11 +73,44 @@ impl<'a> Tokeniser<'a> {
     fn next_byte(&mut self) -> Option<(usize, u8)> {
         self.stashed_byte.take().or_else(|| self.byte_indexes.next())
     }
+
+    #[inline(always)]
+    fn make_symbol(&mut self) -> Token<'a> {
+        //println!("making symbol with string \"{}\"", self.token.string(self.bytes));
+        let token = if self.token.len() == 1 {
+            Token::Symbol(Ascii(self.token.first_byte(self.bytes)))
+        } else {
+            Token::ExtendedSymbol(AsciiSlice(self.token.make_byte_slice(self.bytes)))
+        };
+        self.token.clear();
+        token
+    }
+    
+    #[inline(always)]
+    fn parse_symbol(&mut self) -> Option<Token<'a>> {
+        while let Some((index, byte)) = self.next_byte() {
+            //println!("read  b'{}'", byte as char);
+            if is_symbol(byte) {
+                let bytes = &self.bytes[self.token.offset()..index + 1];
+                if self.symbol_table.contains(&SymbolString(Cow::Borrowed(bytes))) {
+                    self.location.column += 1;
+                    self.token.push_byte(index, byte);
+                } else {
+                    self.stashed_byte = Some((index, byte)); // don't consume the char
+                    return Some(self.make_symbol())
+                }
+            } else {
+                self.stashed_byte = Some((index, byte)); // don't consume the char
+                return Some(self.make_symbol())
+            }
+        }
+        None
+    }
 }
 
 pub type Fragment<'a> = Result<Token<'a>, Box<Error>>;
 
-impl<'a> Iterator for Tokeniser<'a> {
+impl<'a> Iterator for Tokeniser<'a, '_> {
     type Item = Fragment<'a>;
 
     #[inline]
@@ -121,9 +158,6 @@ impl<'a> Iterator for Tokeniser<'a> {
                         b']' => {
                             return Some(Ok(Token::Right(ListDelimiter::Bracket)));
                         }
-                        b'-' | b':' | b',' => {
-                            return Some(Ok(Token::Symbol(Byte(byte))));
-                        }
                         b'0'..=b'9' => {
                             self.mode = Mode::Integer;
                             self.token.push_byte(index, byte);
@@ -132,11 +166,22 @@ impl<'a> Iterator for Tokeniser<'a> {
                             self.mode = Mode::Decimal(0);
                         }
                         _ => {
-                            self.mode = Mode::Ident;
-                            if byte < 0x80 {
+                            if is_symbol(byte) {
+                                //println!("start b'{}'", byte as char);
                                 self.token.push_byte(index, byte);
+                                match self.parse_symbol() {
+                                    None => {}
+                                    Some(token) => {
+                                        return Some(Ok(token))
+                                    }
+                                }
                             } else {
-                                self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                                self.mode = Mode::Ident;
+                                if byte < 0x80 {
+                                    self.token.push_byte(index, byte);
+                                } else {
+                                    self.token.push_grapheme(index, read_grapheme(byte, &mut self.byte_indexes))
+                                }
                             }
                         }
                     }

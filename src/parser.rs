@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::lexer;
 use crate::lexer::Fragment;
 use crate::parser::fragment_stream::{FragmentStream};
-use crate::token::{Byte, ListDelimiter, Token};
+use crate::token::{Ascii, ListDelimiter, Token};
 use crate::tree::{Node, Phrase, Verse};
 
 mod fragment_stream;
@@ -59,19 +59,20 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
                 let child = parse_list(delimiter, &mut fragments)?;
                 phrase.push(child);
             }
-            Token::Symbol(Byte(b':')) => {
+            Token::Symbol(Ascii(b':')) => {
                 let head = cons_head(&mut phrase)?;
                 let child = parse_cons(head, &mut fragments)?;
                 phrase.push(child);
             }
-            Token::Symbol(Byte(b'-')) => {
+            Token::Symbol(Ascii(b'-')) => {
                 let child = parse_prefix(token, &mut fragments)?;
                 phrase.push(child);
             }
-            Token::Symbol(Byte(b',')) | Token::Right(_) => {
+            Token::Symbol(Ascii(b',')) | Token::Right(_) => {
                 return Err(Error::UnexpectedToken(token))
             },
-            Token::Symbol(_) => todo!()
+            Token::Symbol(_) => todo!(),
+            Token::ExtendedSymbol(_) => todo!()
         }
     }
 
@@ -104,11 +105,11 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(left_delimiter: ListDelimiter,
                     let child = parse_list(delimiter, fragments)?;
                     phrase.push(child);
                 }
-                Token::Symbol(Byte(b'-')) => {
+                Token::Symbol(Ascii(b'-')) => {
                     let child = parse_prefix(token, fragments)?;
                     phrase.push(child);
                 }
-                Token::Symbol(Byte(b',')) => {
+                Token::Symbol(Ascii(b',')) => {
                     if !phrase.is_empty() {
                         let phrase = mem::take(&mut phrase);
                         verse.push(Phrase(phrase));
@@ -119,7 +120,7 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(left_delimiter: ListDelimiter,
                     let verse = mem::take(&mut verse);
                     verses.push(Verse(verse));
                 }
-                Token::Symbol(Byte(b':')) => {
+                Token::Symbol(Ascii(b':')) => {
                     let head = cons_head(&mut phrase)?;
                     let child = parse_cons(head, fragments)?;
                     phrase.push(child);
@@ -137,7 +138,8 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(left_delimiter: ListDelimiter,
                         Err(Error::UnexpectedToken(Token::Right(right_delimiter)))
                     }
                 },
-                Token::Symbol(_) => todo!()
+                Token::Symbol(_) => todo!(),
+                Token::ExtendedSymbol(_) => todo!()
             }
         } else {
             return Err(Error::UnterminatedList)
@@ -168,15 +170,15 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, fragments: &mu
                     let child = parse_list(delimiter, fragments)?;
                     tail.push(child);
                 }
-                Token::Symbol(Byte(b'-')) => {
+                Token::Symbol(Ascii(b'-')) => {
                     let child = parse_prefix(token, fragments)?;
                     tail.push(child);
                 }
-                Token::Right(_) | Token::Symbol(Byte(b',')) | Token::Newline => {
+                Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Newline => {
                     fragments.stash(Ok(token)); // restore token for the parent parser
                     return Ok(Node::Cons(Box::new(head), Phrase(tail)))
                 }
-                Token::Symbol(Byte(b':')) => {
+                Token::Symbol(Ascii(b':')) => {
                     return if !tail.is_empty() {
                         let cons = Node::Cons(Box::new(head), Phrase(tail));
                         let child = parse_cons(cons, fragments)?;
@@ -185,7 +187,8 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, fragments: &mu
                         Err(Error::EmptyConsSegment)
                     }
                 },
-                Token::Symbol(_) => todo!()
+                Token::Symbol(_) => todo!(),
+                Token::ExtendedSymbol(_) => todo!()
             }
         } else {
             return Err(Error::UnterminatedCons)
@@ -206,10 +209,11 @@ fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(symbol: Token<'a>, fragments
                     let child = parse_list(delimiter, fragments)?;
                     Ok(Node::Prefix(symbol, Box::new(child)))
                 }
-                Token::Newline | Token::Right(_) | Token::Symbol(Byte(b',')) | Token::Symbol(Byte(b':')) | Token::Symbol(Byte(b'-')) => {
+                Token::Newline | Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Symbol(Ascii(b':')) | Token::Symbol(Ascii(b'-')) => {
                     Err(Error::UnexpectedToken(token))
                 },
-                Token::Symbol(_) => todo!()
+                Token::Symbol(_) => todo!(),
+                Token::ExtendedSymbol(_) => todo!()
             }
         }
         None => {

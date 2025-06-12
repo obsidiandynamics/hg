@@ -3,11 +3,27 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::types::unqualified_type_name;
 
 #[derive(PartialEq, Eq)]
-pub struct Byte(pub u8);
+pub struct Ascii(pub u8);
 
-impl Debug for Byte {
+impl Debug for Ascii {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(b'{}')", unqualified_type_name::<Self>(), self.0 as char)
+    }
+}
+
+#[derive(PartialEq, Eq)]
+pub struct AsciiSlice<'a>(pub &'a [u8]);
+
+impl Debug for AsciiSlice<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut buf = String::from("[");
+        for (index, byte) in self.0.iter().enumerate() {
+            buf.push_str(format!("b'{}'", *byte as char).as_str());
+            if index < self.0.len() - 1 {
+                buf.push_str(", ")
+            }
+        }
+        write!(f, "{buf}]")
     }
 }
 
@@ -20,7 +36,8 @@ pub enum Token<'a> {
     Boolean(bool),
     Left(ListDelimiter),
     Right(ListDelimiter),
-    Symbol(Byte),
+    Symbol(Ascii),
+    ExtendedSymbol(AsciiSlice<'a>),
     Ident(Cow<'a, str>),
     Newline,
 }
@@ -47,11 +64,11 @@ impl Display for Location {
 
 #[cfg(test)]
 mod tests {
-    use crate::token::Byte;
+    use crate::token::Ascii;
 
     #[test]
     fn byte_debug() {
-        let byte = Byte(b'a');
-        assert_eq!("Byte(b'a')", format!("{byte:?}"));
+        let byte = Ascii(b'a');
+        assert_eq!("Ascii(b'a')", format!("{byte:?}"));
     }
 }

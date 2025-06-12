@@ -1,13 +1,14 @@
 use hg::lexer::Tokeniser;
 use hg::parser::parse;
-use hg::token::{Byte, Token};
+use hg::token::{Ascii, Token};
 use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
 use hg::{phrase, verse};
+use hg::symbols::SymbolTable;
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    Tokeniser::new(str).map(Result::unwrap).collect()
+    Tokeniser::new(str, SymbolTable::default()).map(Result::unwrap).collect()
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
@@ -35,7 +36,7 @@ fn null() -> Node<'static> {
 }
 
 fn negative(value: impl Into<Node<'static>>) -> Node<'static> {
-    Prefix(Symbol(Byte(b'-')), Box::new(value.into()))
+    Prefix(Symbol(Ascii(b'-')), Box::new(value.into()))
 }
 
 fn key_value(key: &'static str, value: Node<'static>) -> Node<'static> {

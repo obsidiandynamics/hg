@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
+use once_cell::sync::Lazy;
 
 pub const SYMBOL_MAP: [bool; 256] = [
     /*
@@ -31,7 +32,7 @@ pub const fn is_symbol(byte: u8) -> bool {
 }
 
 #[derive(Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
-pub struct SymbolString<'a>(Cow<'a, [u8]>);
+pub struct SymbolString<'a>(pub Cow<'a, [u8]>);
 
 impl Display for SymbolString<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -79,7 +80,7 @@ pub enum Error<'a> {
     MissingPrefix(SymbolString<'a>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SymbolTable<'a>(Cow<'a, [SymbolString<'a>]>);
 
 impl<'a> SymbolTable<'a> {
@@ -126,12 +127,20 @@ impl<'a> SymbolTable<'a> {
     }
 }
 
+static DEFAULT_SYMBOL_TABLE: Lazy<SymbolTable> = Lazy::new(|| {
+    let mut symbols = SymbolTable::empty();
+    symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
+    symbols.add(SymbolString::try_from("--").unwrap()).unwrap();
+    symbols.add(SymbolString::try_from("-=").unwrap()).unwrap();
+    symbols.add(SymbolString::try_from("++").unwrap()).unwrap();
+    symbols.add(SymbolString::try_from("+=").unwrap()).unwrap();
+    symbols
+});
+
 impl Default for SymbolTable<'static> {
     #[inline]
     fn default() -> Self {
-        let mut symbols = SymbolTable::empty();
-        symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
-        symbols
+        DEFAULT_SYMBOL_TABLE.clone()
     }
 }
 

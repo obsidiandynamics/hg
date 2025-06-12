@@ -10,7 +10,12 @@ pub struct CharBuffer {
 }
 
 impl CharBuffer {
-    #[inline]
+    #[inline(always)]
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+    
+    #[inline(always)]
     pub fn is_empty(&self) -> bool {
         match self.mode {
             Mode::Slice => self.len == 0,
@@ -18,7 +23,7 @@ impl CharBuffer {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn len(&self) -> usize {
         match self.mode {
             Mode::Slice => self.len,
@@ -123,6 +128,16 @@ impl CharBuffer {
     #[inline(always)]
     fn make_str_slice<'b>(&self, bytes: &'b [u8]) -> &'b str {
         unsafe { str::from_utf8_unchecked(&bytes[self.offset..self.offset + self.len])}
+    }
+
+    #[inline(always)]
+    pub fn make_byte_slice<'b>(&self, bytes: &'b [u8]) -> &'b [u8] {
+        &bytes[self.offset..self.offset + self.len]
+    }
+
+    #[inline(always)]
+    pub fn first_byte(&self, bytes: &[u8]) -> u8 {
+        bytes[self.offset]
     }
 
     #[inline]
