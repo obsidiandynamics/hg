@@ -28,6 +28,7 @@ const F: bool = false;
 
 #[inline(always)]
 pub const fn is_symbol(byte: u8) -> bool {
+    // matches!(byte, b'!' | b'#' | b'$' | b'%' | b'&' | b'*' | b'+' | b',' | b'-' | b'.' | b'/' | b':' | b';' | b'<' | b'=' | b'>' | b'?' | b'@' | b'^' | b'`' | b'|' | b'~')
     SYMBOL_MAP[byte as usize]
 }
 

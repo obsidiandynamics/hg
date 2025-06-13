@@ -9,6 +9,10 @@ use crate::newline_terminated_bytes::NewlineTerminatedBytes;
 use crate::symbols::{is_symbol, SymbolString, SymbolTable};
 
 #[derive(Debug, thiserror::Error)]
+#[error("codepoint out of range")]
+pub struct CodepointOutOfRange;
+
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("i/o error {0}")]
     Io(#[from] io::Error),
@@ -19,8 +23,11 @@ pub enum Error {
     #[error("unterminated literal at {0}")]
     UnterminatedLiteral(Location),
 
-    #[error("unknown escape sequence '{0}' at {1}")]
-    UnknownEscapeSequence(char, Location),
+    #[error("unknown escape sequence \"{0}\" at {1}")]
+    UnknownEscapeSequence(String, Location),
+
+    #[error("invalid codepoint \"{0}\" ({1}) at {2}")]
+    InvalidCodepoint(String, Box<dyn std::error::Error>, Location),
 
     #[error("unparsable integer {0} ({1}) at {2}")]
     UnparsableInteger(String, ParseIntError, Location),
@@ -34,10 +41,8 @@ pub enum Error {
 
 enum Mode {
     Whitespace,
-    TextBody,
-    TextEscape,
-    CharacterBody,
-    CharacterEscape,
+    Text,
+    Character,
     Integer,
     Decimal(u128),
     Ident
@@ -85,7 +90,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
         self.token.clear();
         token
     }
-    
+
     #[inline(always)]
     fn parse_symbol(&mut self) -> Option<Token<'a>> {
         while let Some((index, byte)) = self.next_byte() {
@@ -109,9 +114,127 @@ impl<'a, 's> Tokeniser<'a, 's> {
                 return Some(self.make_symbol())
             }
         }
-        unreachable!() // since '\n' is guaranteed to terminate the stream, which is handled in the loop above
+        unreachable!() // since '\n' is guaranteed to terminate the stream (handled in the loop above)
     }
     
+    #[inline(always)]
+    fn char_from_hex(&mut self, buf: &str, hex: u32) -> Result<char, Box<Error>> {
+        match char::from_u32(hex) {
+            None => {
+                self.error = true;
+                Err(Error::InvalidCodepoint(buf.to_string(), Box::new(CodepointOutOfRange), self.location.clone()).into())
+            }
+            Some(char) => Ok(char)
+        }
+    }
+
+    #[inline]
+    fn parse_escape(&mut self) -> Result<char, Box<Error>> {
+        enum EscapeState {
+            Single,
+            Hex,
+            UnicodeFixed,
+            UnicodeVariable
+        }
+
+        let mut buf = String::new();
+        let mut state = EscapeState::Single;
+        while let Some((_, byte)) = self.next_byte() {
+            self.location.column += 1;
+            if byte == b'\n' {
+                self.error = true;
+                let str = unsafe { String::from_utf8_unchecked(vec![byte]) };
+                return Err(Error::UnknownEscapeSequence(str, self.location.clone()).into())
+            } else if byte < 0x80 {
+                match state {
+                    EscapeState::Single => {
+                        match byte {
+                            b'\\' | b'"' | b'\'' => {
+                                return Ok(byte as char)
+                            }
+                            b'n' => {
+                                return Ok('\n')
+                            }
+                            b'r' => {
+                                return Ok('\r')
+                            }
+                            b't' => {
+                                return Ok('\t')
+                            }
+                            b'0' => {
+                                return Ok('\0')
+                            }
+                            b'x' => {
+                                state = EscapeState::Hex
+                            }
+                            b'u' => {
+                                state = EscapeState::UnicodeFixed
+                            }
+                            _ => {
+                                self.error = true;
+                                let str = unsafe { String::from_utf8_unchecked(vec![byte]) };
+                                return Err(Error::UnknownEscapeSequence(str, self.location.clone()).into())
+                            }
+                        }
+                    }
+                    EscapeState::Hex => {
+                        buf.push(byte as char);
+                        if buf.len() == 2 {
+                            return match u8::from_str_radix(&buf, 16) {
+                                Ok(hex) => {
+                                    Ok(hex as char)
+                                }
+                                Err(err) => {
+                                    self.error = true;
+                                    Err(Error::InvalidCodepoint(buf, Box::new(err), self.location.clone()).into())
+                                }
+                            }
+                        }
+                    }
+                    EscapeState::UnicodeFixed => {
+                        if buf.is_empty() && byte == b'{' {
+                            state = EscapeState::UnicodeVariable;
+                        } else {
+                            buf.push(byte as char);
+                            if buf.len() == 4 {
+                                return match u16::from_str_radix(&buf, 16) {
+                                    Ok(hex) => {
+                                        self.char_from_hex(&buf, hex as u32)
+                                    }
+                                    Err(err) => {
+                                        self.error = true;
+                                        Err(Error::InvalidCodepoint(buf, Box::new(err), self.location.clone()).into())
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    EscapeState::UnicodeVariable => {
+                        if byte == b'}' {
+                            return match u32::from_str_radix(&buf, 16) {
+                                Ok(hex) => {
+                                    self.char_from_hex(&buf, hex)
+                                }
+                                Err(err) => {
+                                    self.error = true;
+                                    Err(Error::InvalidCodepoint(buf, Box::new(err), self.location.clone()).into())
+                                }
+                            }
+                        } else {
+                            buf.push(byte as char);
+                        }
+                    }
+                }
+            } else {
+                self.error = true;
+                let grapheme = read_grapheme(byte, &mut self.byte_indexes);
+                buf.push(char::from(grapheme));
+                return Err(Error::UnknownEscapeSequence(buf, self.location.clone()).into())
+            }
+        }
+        unreachable!() // since '\n' is guaranteed to terminate the stream (handled in the loop above)
+    }
+
     #[inline]
     fn make_integer(&mut self) -> Option<Fragment<'a>> {
         let str = self.token.as_str(self.bytes);
@@ -129,7 +252,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
             }
         }
     }
-    
+
     #[inline]
     fn make_decimal(&mut self, whole: u128) -> Option<Fragment<'a>> {
         let str = self.token.as_str(self.bytes);
@@ -147,7 +270,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
             }
         }
     }
-    
+
     #[inline]
     fn make_ident(&mut self) -> Option<Fragment<'a>> {
         let str = self.token.as_str(self.bytes);
@@ -190,10 +313,10 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                             return Some(Err(Error::UnexpectedCharacter(byte as char, self.location.clone()).into()))
                         }
                         b'"' => {
-                            self.mode = Mode::TextBody;
+                            self.mode = Mode::Text;
                         }
                         b'\'' => {
-                            self.mode = Mode::CharacterBody;
+                            self.mode = Mode::Character;
                         }
                         b'\t' | b'\r' | b' ' => {}
                         b'\n' => {
@@ -243,11 +366,18 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                         }
                     }
                 }
-                Mode::TextBody => {
+                Mode::Text => {
                     match byte {
                         b'\\' => {
-                            self.token.copy(self.bytes);
-                            self.mode = Mode::TextEscape;
+                            match self.parse_escape() {
+                                Ok(char) => {
+                                    self.token.copy(self.bytes);
+                                    self.token.push_char(0, char);
+                                }
+                                Err(err) => {
+                                    return Some(Err(err))
+                                }
+                            }
                         }
                         b'"' => {
                             let token = Token::Text(self.token.string(self.bytes));
@@ -268,53 +398,18 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                         }
                     }
                 }
-                Mode::CharacterEscape | Mode::TextEscape => {
-                    match byte {
-                        b'\\' | b'"' | b'\'' => {
-                            self.token.push_byte(0, byte);
-                        }
-                        b'n' => {
-                            self.token.push_char(0, '\n');
-                        }
-                        b'r' => {
-                            self.token.push_char(0, '\r');
-                        }
-                        b't' => {
-                            self.token.push_char(0, '\t');
-                        }
-                        b'x' => {
-                            //TODO handle hex (e.g., \x7F)
-                            self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
-                        }
-                        b'u' => {
-                            //TODO handle unicode (e.g., \u{7FFF})
-                            self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
-                        }
-                        _ => {
-                            self.error = true;
-                            return Some(Err(Error::UnknownEscapeSequence(byte as char, self.location.clone()).into()))
-                        }
-                    }
-                    match self.mode {
-                        Mode::TextEscape => {
-                            self.mode = Mode::TextBody;
-                        }
-                        Mode::CharacterEscape => {
-                            self.mode = Mode::CharacterBody;
-                        }
-                        _ => {
-                            // by the encompassing pattern, mode must be one of the two variants above
-                            unreachable!()
-                        }
-                    }
-                }
-                Mode::CharacterBody => {
+                Mode::Character => {
                     match byte {
                         b'\\' => {
-                            self.mode = Mode::CharacterEscape;
-                            self.token.copy(self.bytes);
+                            match self.parse_escape() {
+                                Ok(char) => {
+                                    self.token.copy(self.bytes);
+                                    self.token.push_char(0, char);
+                                }
+                                Err(err) => {
+                                    return Some(Err(err))
+                                }
+                            }
                         }
                         b'\'' => {
                             let mut chars = self.token.as_str(self.bytes).chars();
@@ -375,7 +470,7 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                             if byte < 0x80 {
                                 if is_symbol(byte) {
                                     self.stashed_byte = Some((index, byte)); // don't consume the char
-                                    return self.make_integer(); 
+                                    return self.make_integer();
                                 } else {
                                     self.token.push_byte(index, byte);
                                 }

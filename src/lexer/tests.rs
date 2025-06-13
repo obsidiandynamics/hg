@@ -74,6 +74,76 @@ fn text_escaped_newline() {
 }
 
 #[test]
+fn text_escaped_nul() {
+    let str = r#""hel\0lo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel\0lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_hex() {
+    let str = r#""hel\x7elo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel~lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_unicode_fixed() {
+    let str = r#""hel\u2764lo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel❤lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_unicode_fixed_ascii() {
+    let str = r#""hel\u007elo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel~lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_unicode_variable_24() {
+    let str = r#""hel\u{1f4af}lo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel💯lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_unicode_variable_16() {
+    let str = r#""hel\u{2764}lo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel❤lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_unicode_variable_ascii() {
+    let str = r#""hel\u{007e}lo""#;
+    let tokens = tok_ok(str);
+    assert_eq!(vec![Text("hel~lo".into()), Newline], tokens);
+    assert_eq!(vec![Owned, NA], is_owned(tokens));
+}
+
+#[test]
+fn text_escaped_unicode_variable_out_of_range_err() {
+    let str = r#""hel\u{ffffffff}lo""#;
+    let err = tok_err(str);
+    assert_eq!("invalid codepoint \"ffffffff\" (codepoint out of range) at line 1, column 16", err.to_string());
+}
+
+#[test]
+fn text_escaped_hex_unparsable_err() {
+    let str = r#""hel\xfglo""#;
+    let err = tok_err(str);
+    assert_eq!("invalid codepoint \"fg\" (invalid digit found in string) at line 1, column 8", err.to_string());
+}
+
+#[test]
 fn text_escaped_newline_with_utf8() {
     let str = r#""hel\nµℝ💣""#;
     let tokens = tok_ok(str);
@@ -114,6 +184,20 @@ fn text_escaped_backslash() {
 }
 
 #[test]
+fn text_escaped_unknown_utf8_err() {
+    let str = r#""hel\µ""#;
+    let err = tok_err(str);
+    assert_eq!("unknown escape sequence \"µ\" at line 1, column 6", err.to_string());
+}
+
+#[test]
+fn text_escaped_unterminated_unicode_err() {
+    let str = r#""hel\u"#;
+    let err = tok_err(str);
+    assert_eq!("unknown escape sequence \"\n\" at line 1, column 7", err.to_string());
+}
+
+#[test]
 fn text_unterminated_err() {
     let str = r#""hello
         "#;
@@ -126,7 +210,7 @@ fn text_unknown_escape_err() {
     let str = r#""hello\s
         "#;
     let err = tok_err(str);
-    assert_eq!("unknown escape sequence 's' at line 1, column 8", err.to_string());
+    assert_eq!("unknown escape sequence \"s\" at line 1, column 8", err.to_string());
 }
 
 #[test]
@@ -179,7 +263,7 @@ fn character_unknown_escape_err() {
     let str = r#"'\s
         "#;
     let err = tok_err(str);
-    assert_eq!("unknown escape sequence 's' at line 1, column 3", err.to_string());
+    assert_eq!("unknown escape sequence \"s\" at line 1, column 3", err.to_string());
 }
 
 #[test]
