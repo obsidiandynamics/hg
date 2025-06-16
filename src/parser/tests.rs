@@ -1,17 +1,17 @@
 use crate::parser::{parse, Error};
 use crate::{phrase, verse};
 use crate::token::ListDelimiter::{Brace, Paren};
-use crate::token::{Ascii, Token};
+use crate::token::{Ascii, Location, Token};
 use crate::token::Token::{Symbol, Decimal, Ident, Integer, Newline, Left, Right, Text};
 use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
-    parse(tokens.into_iter().map(Ok)).unwrap()
+    parse(tokens.into_iter().map(|token| (token, Location::before_start(), Location::before_start())).map(Ok)).unwrap()
 }
 
 fn parse_err(tokens: Vec<Token>) -> Error {
-    parse(tokens.into_iter().map(Ok)).unwrap_err()
+    parse(tokens.into_iter().map(|token| (token, Location::before_start(), Location::before_start())).map(Ok)).unwrap_err()
 }
 
 #[test]

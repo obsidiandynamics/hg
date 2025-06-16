@@ -54,6 +54,7 @@ pub struct Tokeniser<'a, 's> {
     byte_indexes: NewlineTerminatedBytes<'a>,
     token: CharBuffer,
     mode: Mode,
+    start: Location,
     location: Location,
     stashed_byte: Option<(usize, u8)>,
     error: bool
@@ -68,7 +69,8 @@ impl<'a, 's> Tokeniser<'a, 's> {
             byte_indexes:  NewlineTerminatedBytes::new(str.bytes()),
             token: CharBuffer::default(),
             mode: Mode::Whitespace,
-            location: Location { line: 1, column: 0 },
+            start: Location::before_start(),
+            location: Location::before_start(),
             stashed_byte: None,
             error: false,
         }
@@ -108,6 +110,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
                 self.token.clear();
                 self.stashed_byte = Some((index, byte)); // don't consume the char
                 self.mode = Mode::Decimal(0);
+                self.start = self.location.clone();
                 return None
             } else {
                 self.stashed_byte = Some((index, byte)); // don't consume the char
@@ -228,7 +231,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
                 self.token.clear();
                 self.mode = Mode::Whitespace;
                 self.location.column -= 1;
-                Some(Ok(token))
+                self.frame_token(token)
             }
             Err(err) => {
                 self.error = true;
@@ -246,7 +249,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
                 self.token.clear();
                 self.mode = Mode::Whitespace;
                 self.location.column -= 1;
-                Some(Ok(token))
+                self.frame_token(token)
             }
             Err(err) => {
                 self.error = true;
@@ -272,11 +275,18 @@ impl<'a, 's> Tokeniser<'a, 's> {
         self.token.clear();
         self.mode = Mode::Whitespace;
         self.location.column -= 1;
-        Some(Ok(token))
+        self.frame_token(token)
+    }
+    
+    fn frame_token(&mut self, token: Token<'a>) -> Option<Fragment<'a>> {
+        let start = self.start.clone();
+        self.start = self.location.clone();
+        self.start.column += 1;
+        Some(Ok((token, start, self.location.clone())))
     }
 }
 
-pub type Fragment<'a> = Result<Token<'a>, Box<Error>>;
+pub type Fragment<'a> = Result<(Token<'a>, Location, Location), Box<Error>>;
 
 impl<'a> Iterator for Tokeniser<'a, '_> {
     type Item = Fragment<'a>;
@@ -297,37 +307,46 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                             return Some(Err(Error::UnexpectedCharacter(byte as char, self.location.clone()).into()))
                         }
                         b'"' => {
+                            self.start = self.location.clone();
                             self.mode = Mode::Text;
                         }
                         b'\'' => {
+                            self.start = self.location.clone();
                             self.mode = Mode::Character;
                         }
                         b'\t' | b'\r' | b' ' => {}
                         b'\n' => {
                             self.location.line += 1;
-                            self.location.column = 1;
-                            return Some(Ok(Token::Newline))
+                            self.location.column = 0;
+                            return self.frame_token(Token::Newline)
                         }
                         b'(' => {
-                            return Some(Ok(Token::Left(ListDelimiter::Paren)));
+                            self.start = self.location.clone();
+                            return self.frame_token(Token::Left(ListDelimiter::Paren));
                         }
                         b')' => {
-                            return Some(Ok(Token::Right(ListDelimiter::Paren)));
+                            self.start = self.location.clone();
+                            return self.frame_token(Token::Right(ListDelimiter::Paren));
                         }
                         b'{' => {
-                            return Some(Ok(Token::Left(ListDelimiter::Brace)));
+                            self.start = self.location.clone();
+                            return self.frame_token(Token::Left(ListDelimiter::Brace));
                         }
                         b'}' => {
-                            return Some(Ok(Token::Right(ListDelimiter::Brace)));
+                            self.start = self.location.clone();
+                            return self.frame_token(Token::Right(ListDelimiter::Brace));
                         }
                         b'[' => {
-                            return Some(Ok(Token::Left(ListDelimiter::Bracket)));
+                            self.start = self.location.clone();
+                            return self.frame_token(Token::Left(ListDelimiter::Bracket));
                         }
                         b']' => {
-                            return Some(Ok(Token::Right(ListDelimiter::Bracket)));
+                            self.start = self.location.clone();
+                            return self.frame_token(Token::Right(ListDelimiter::Bracket));
                         }
                         b'0'..=b'9' => {
                             self.mode = Mode::Integer;
+                            self.start = self.location.clone();
                             self.token.push_byte(index, byte);
                         }
                         _ => {
@@ -336,7 +355,7 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                                 match self.parse_symbol() {
                                     None => {}
                                     Some(token) => {
-                                        return Some(Ok(token))
+                                        return self.frame_token(token)
                                     }
                                 }
                             } else {
@@ -367,7 +386,7 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                             let token = Token::Text(self.token.string(self.bytes));
                             self.token.clear();
                             self.mode = Mode::Whitespace;
-                            return Some(Ok(token))
+                            return self.frame_token(token)
                         }
                         b'\n' => {
                             self.error = true;
@@ -406,7 +425,7 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                                     let token = Token::Character(first_char);
                                     self.token.clear();
                                     self.mode = Mode::Whitespace;
-                                    Some(Ok(token))
+                                    self.frame_token(token)
                                 }
                             }
                         }

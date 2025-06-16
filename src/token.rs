@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use crate::types::unqualified_type_name;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct Ascii(pub u8);
 
 impl Debug for Ascii {
@@ -11,7 +11,7 @@ impl Debug for Ascii {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct AsciiSlice<'a>(pub &'a [u8]);
 
 impl Debug for AsciiSlice<'_> {
@@ -27,7 +27,7 @@ impl Debug for AsciiSlice<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token<'a> {
     Text(Cow<'a, str>),
     Character(char),
@@ -42,7 +42,7 @@ pub enum Token<'a> {
     Newline,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ListDelimiter {
     Paren,
     Brace,
@@ -54,6 +54,24 @@ pub enum ListDelimiter {
 pub struct Location {
     pub line: u32,
     pub column: u32
+}
+
+impl Location {
+    #[inline]
+    pub fn before_start() -> Self {
+        Self {
+            line: 1, column: 0
+        }
+    }
+}
+
+impl From<(u32, u32)> for Location {
+    fn from(value: (u32, u32)) -> Self {
+        let (line, column) = value;
+        Self {
+            line, column
+        }
+    }
 }
 
 impl Display for Location {
