@@ -104,7 +104,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
                     self.stashed_byte = Some((index, byte)); // don't consume the char
                     return Some(self.make_symbol())
                 }
-            } else if self.token.len() == 1 && self.token.first_byte(&self.bytes) == b'.' && byte.is_ascii_digit() {
+            } else if self.token.len() == 1 && self.token.first_byte(self.bytes) == b'.' && byte.is_ascii_digit() {
                 self.token.clear();
                 self.stashed_byte = Some((index, byte)); // don't consume the char
                 self.mode = Mode::Decimal(0);
@@ -115,17 +115,6 @@ impl<'a, 's> Tokeniser<'a, 's> {
             }
         }
         unreachable!() // since '\n' is guaranteed to terminate the stream (handled in the loop above)
-    }
-    
-    #[inline(always)]
-    fn char_from_hex(&mut self, buf: &str, hex: u32) -> Result<char, Box<Error>> {
-        match char::from_u32(hex) {
-            None => {
-                self.error = true;
-                Err(Error::InvalidCodepoint(buf.to_string(), Box::new(CodepointOutOfRange), self.location.clone()).into())
-            }
-            Some(char) => Ok(char)
-        }
     }
 
     #[inline]
@@ -180,15 +169,7 @@ impl<'a, 's> Tokeniser<'a, 's> {
                     EscapeState::Hex => {
                         buf.push(byte as char);
                         if buf.len() == 2 {
-                            return match u8::from_str_radix(&buf, 16) {
-                                Ok(hex) => {
-                                    Ok(hex as char)
-                                }
-                                Err(err) => {
-                                    self.error = true;
-                                    Err(Error::InvalidCodepoint(buf, Box::new(err), self.location.clone()).into())
-                                }
-                            }
+                            return self.make_unicode(&buf)
                         }
                     }
                     EscapeState::UnicodeFixed => {
@@ -197,29 +178,13 @@ impl<'a, 's> Tokeniser<'a, 's> {
                         } else {
                             buf.push(byte as char);
                             if buf.len() == 4 {
-                                return match u16::from_str_radix(&buf, 16) {
-                                    Ok(hex) => {
-                                        self.char_from_hex(&buf, hex as u32)
-                                    }
-                                    Err(err) => {
-                                        self.error = true;
-                                        Err(Error::InvalidCodepoint(buf, Box::new(err), self.location.clone()).into())
-                                    }
-                                }
+                                return self.make_unicode(&buf)
                             }
                         }
                     }
                     EscapeState::UnicodeVariable => {
                         if byte == b'}' {
-                            return match u32::from_str_radix(&buf, 16) {
-                                Ok(hex) => {
-                                    self.char_from_hex(&buf, hex)
-                                }
-                                Err(err) => {
-                                    self.error = true;
-                                    Err(Error::InvalidCodepoint(buf, Box::new(err), self.location.clone()).into())
-                                }
-                            }
+                            return self.make_unicode(&buf)
                         } else {
                             buf.push(byte as char);
                         }
@@ -233,6 +198,25 @@ impl<'a, 's> Tokeniser<'a, 's> {
             }
         }
         unreachable!() // since '\n' is guaranteed to terminate the stream (handled in the loop above)
+    }
+
+    #[inline]
+    fn make_unicode(&mut self, buf: &str) -> Result<char, Box<Error>> {
+        match u32::from_str_radix(buf, 16) {
+            Ok(hex) => {
+                match char::from_u32(hex) {
+                    None => {
+                        self.error = true;
+                        Err(Error::InvalidCodepoint(buf.to_string(), Box::new(CodepointOutOfRange), self.location.clone()).into())
+                    }
+                    Some(char) => Ok(char)
+                }
+            }
+            Err(err) => {
+                self.error = true;
+                Err(Error::InvalidCodepoint(buf.to_string(), Box::new(err), self.location.clone()).into())
+            }
+        }
     }
 
     #[inline]
