@@ -1,17 +1,24 @@
+use std::iter::{Enumerate, Map};
+use std::vec::IntoIter;
 use crate::parser::{parse, Error};
-use crate::{phrase, verse};
+use crate::{lexer, phrase, verse};
+use crate::metadata::{Location, Metadata};
 use crate::token::ListDelimiter::{Brace, Paren};
-use crate::token::{Ascii, Location, Token};
+use crate::token::{Ascii, Token};
 use crate::token::Token::{Symbol, Decimal, Ident, Integer, Newline, Left, Right, Text};
 use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
 
+fn map_metadata(tokens: Vec<Token>) -> Map<Enumerate<IntoIter<Token>>, fn((usize, Token)) -> Result<(Token, Metadata), Box<lexer::Error>>> {
+    tokens.into_iter().enumerate().map(|(index, token)| Ok((token, Metadata {start: Location { column: 1, line: index as u32 * 2 + 1}, end: Location{ column: 1, line: index as u32 * 2 + 2}})))
+}
+
 fn parse_ok(tokens: Vec<Token>) -> Verse {
-    parse(tokens.into_iter().map(|token| (token, Location::before_start(), Location::before_start())).map(Ok)).unwrap()
+    parse(map_metadata(tokens)).unwrap()
 }
 
 fn parse_err(tokens: Vec<Token>) -> Error {
-    parse(tokens.into_iter().map(|token| (token, Location::before_start(), Location::before_start())).map(Ok)).unwrap_err()
+    parse(map_metadata(tokens)).unwrap_err()
 }
 
 #[test]

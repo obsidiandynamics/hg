@@ -44,7 +44,7 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
     let mut verse = vec![];
     let mut phrase = vec![];
     while let Some(fragment) = fragments.next() {
-        let (token, _, _) = fragment?;
+        let (token, _) = fragment?;
         match token {
             Token::Newline => {
                 if !phrase.is_empty() {
@@ -90,7 +90,7 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(left_delimiter: ListDelimiter,
     let mut phrase = vec![];
     loop {
         if let Some(fragment) = fragments.next() {
-            let (token, _, _) = fragment?;
+            let (token, _) = fragment?;
             match token {
                 Token::Newline => {
                     if !phrase.is_empty() {
@@ -161,7 +161,7 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, fragments: &mu
     let mut tail = vec![];
     loop {
         if let Some(fragment) = fragments.next() {
-            let (token, start, end) = fragment?;
+            let (token, metadata) = fragment?;
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     tail.push(Node::Raw(token))
@@ -175,7 +175,7 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, fragments: &mu
                     tail.push(child);
                 }
                 Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Newline => {
-                    fragments.stash(Ok((token, start, end))); // restore token for the parent parser
+                    fragments.stash(Ok((token, metadata))); // restore token for the parent parser
                     return Ok(Node::Cons(Box::new(head), Phrase(tail)))
                 }
                 Token::Symbol(Ascii(b':')) => {
@@ -200,7 +200,7 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, fragments: &mu
 fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(symbol: Token<'a>, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
     match fragments.next() {
         Some(fragment) => {
-            let (token, _, _) = fragment?;
+            let (token, _) = fragment?;
             match token {
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
                     Ok(Node::Prefix(symbol, Box::new(Node::Raw(token))))

@@ -1,29 +1,30 @@
-use crate::lexer::tests::Ownership::{Borrowed, NA, Owned};
+use crate::lexer::tests::Ownership::{Borrowed, Owned, NA};
 use crate::lexer::{Error, Tokeniser};
+use crate::metadata::Metadata;
 use crate::symbols::SymbolTable;
 use crate::token::ListDelimiter::{Brace, Bracket};
 use crate::token::Token::{
     Boolean, Character, Decimal, ExtendedSymbol, Ident, Left, Right, Symbol,
 };
-use crate::token::{Ascii, AsciiSlice, ListDelimiter, Location, Token};
+use crate::token::{Ascii, AsciiSlice, ListDelimiter, Token};
+use std::borrow::Cow;
 use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
-use std::borrow::Cow;
 
-fn tok_ok(str: &str) -> (Vec<Token>, Vec<LocationPair>) {
-    let tok_with_locations = Tokeniser::new(str, SymbolTable::default())
+fn tok_ok(str: &str) -> (Vec<Token>, Vec<Metadata>) {
+    let tok_with_metadata = Tokeniser::new(str, SymbolTable::default())
         .map(Result::unwrap)
         .collect::<Vec<_>>();
-    let tokens = tok_with_locations
+    let tokens = tok_with_metadata
         .iter()
         .cloned()
-        .map(|(token, _, _)| token)
+        .map(|(token, _)| token)
         .collect();
-    let locations = tok_with_locations
+    let metadata = tok_with_metadata
         .into_iter()
-        .map(|(_, start, end)| LocationPair(start, end))
+        .map(|(_, metadata)| metadata)
         .collect();
-    (tokens, locations)
+    (tokens, metadata)
 }
 
 fn tok_err(str: &str) -> Box<Error> {
@@ -58,20 +59,6 @@ fn is_owned(tokens: Vec<Token>) -> Vec<Ownership> {
         .collect()
 }
 
-#[derive(Debug, PartialEq)]
-struct LocationPair(Location, Location);
-
-impl LocationPair {
-    fn new(start_line: u32, start_column: u32, end_line: u32, end_column: u32) -> Self {
-        debug_assert!(start_line <= end_line);
-        debug_assert!(start_line == end_line && start_column <= end_column || start_line + 1 == end_line);
-        LocationPair(
-            Location::from((start_line, start_column)),
-            Location::from((end_line, end_column)),
-        )
-    }
-}
-
 #[test]
 fn error_terminates_tokeniser() {
     let str = r#"\n"#;
@@ -84,7 +71,7 @@ fn error_terminates_tokeniser() {
 fn text_unescaped() {
     let str = r#""hello world"
 "hi""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Text("hello world".into()),
@@ -97,12 +84,12 @@ fn text_unescaped() {
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 13),
-            LocationPair::new(1, 14, 2, 0),
-            LocationPair::new(2, 1, 2, 4),
-            LocationPair::new(2, 5, 3, 0)
+            Metadata::new(1, 1, 1, 13),
+            Metadata::new(1, 14, 2, 0),
+            Metadata::new(2, 1, 2, 4),
+            Metadata::new(2, 5, 3, 0)
         ],
-        locations
+        metadata
     );
 }
 
@@ -110,7 +97,7 @@ fn text_unescaped() {
 fn text_unescaped_with_utf8() {
     let str = r#""hello µℝ💣 world"
 "hiµℝ💣""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Text("hello µℝ💣 world".into()),
@@ -123,132 +110,132 @@ fn text_unescaped_with_utf8() {
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 17),
-            LocationPair::new(1, 18, 2, 0),
-            LocationPair::new(2, 1, 2, 7),
-            LocationPair::new(2, 8, 3, 0)
+            Metadata::new(1, 1, 1, 17),
+            Metadata::new(1, 18, 2, 0),
+            Metadata::new(2, 1, 2, 7),
+            Metadata::new(2, 8, 3, 0)
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_newline() {
     let str = r#""hel\nlo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\nlo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_nul() {
     let str = r#""hel\0lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\0lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_hex() {
     let str = r#""hel\x7elo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel~lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 11),
-            LocationPair::new(1, 12, 2, 0),
+            Metadata::new(1, 1, 1, 11),
+            Metadata::new(1, 12, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_unicode_fixed() {
     let str = r#""hel\u2764lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel❤lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 13),
-            LocationPair::new(1, 14, 2, 0),
+            Metadata::new(1, 1, 1, 13),
+            Metadata::new(1, 14, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_unicode_fixed_ascii() {
     let str = r#""hel\u007elo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel~lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 13),
-            LocationPair::new(1, 14, 2, 0),
+            Metadata::new(1, 1, 1, 13),
+            Metadata::new(1, 14, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_unicode_variable_24() {
     let str = r#""hel\u{1f4af}lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel💯lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 16),
-            LocationPair::new(1, 17, 2, 0),
+            Metadata::new(1, 1, 1, 16),
+            Metadata::new(1, 17, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_unicode_variable_16() {
     let str = r#""hel\u{2764}lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel❤lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 15),
-            LocationPair::new(1, 16, 2, 0),
+            Metadata::new(1, 1, 1, 15),
+            Metadata::new(1, 16, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_unicode_variable_ascii() {
     let str = r#""hel\u{007e}lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel~lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 15),
-            LocationPair::new(1, 16, 2, 0),
+            Metadata::new(1, 1, 1, 15),
+            Metadata::new(1, 16, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -275,75 +262,75 @@ fn text_escaped_hex_unparsable_err() {
 #[test]
 fn text_escaped_newline_with_utf8() {
     let str = r#""hel\nµℝ💣""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\nµℝ💣".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 10),
-            LocationPair::new(1, 11, 2, 0),
+            Metadata::new(1, 1, 1, 10),
+            Metadata::new(1, 11, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_carriage_return() {
     let str = r#""hel\rlo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\rlo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_tab() {
     let str = r#""hel\tlo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\tlo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_quote() {
     let str = r#""hel\"lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\"lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn text_escaped_backslash() {
     let str = r#""hel\\lo""#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Text("hel\\lo".into()), Newline], tokens);
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -390,19 +377,19 @@ fn text_unknown_escape_err() {
 fn character_unescaped() {
     let str = r#"  'a'
 'b'"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Character('a'), Newline, Character('b'), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 3, 1, 5),
-            LocationPair::new(1, 6, 2, 0),
-            LocationPair::new(2, 1, 2, 3),
-            LocationPair::new(2, 4, 3, 0),
+            Metadata::new(1, 3, 1, 5),
+            Metadata::new(1, 6, 2, 0),
+            Metadata::new(2, 1, 2, 3),
+            Metadata::new(2, 4, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -410,33 +397,33 @@ fn character_unescaped() {
 fn character_unescaped_with_unicode() {
     let str = r#"'💣'
 'µ'"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Character('💣'), Newline, Character('µ'), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 3),
-            LocationPair::new(1, 4, 2, 0),
-            LocationPair::new(2, 1, 2, 3),
-            LocationPair::new(2, 4, 3, 0),
+            Metadata::new(1, 1, 1, 3),
+            Metadata::new(1, 4, 2, 0),
+            Metadata::new(2, 1, 2, 3),
+            Metadata::new(2, 4, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn character_escaped_newline() {
     let str = r#"'\n'"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Character('\n'), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 4),
-            LocationPair::new(1, 5, 2, 0),
+            Metadata::new(1, 1, 1, 4),
+            Metadata::new(1, 5, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -493,7 +480,7 @@ fn escape_during_whitespace_err() {
 #[test]
 fn left_and_right_paren() {
     let str = r#"(( ))"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Paren),
@@ -506,13 +493,13 @@ fn left_and_right_paren() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 6, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 6, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -520,7 +507,7 @@ fn left_and_right_paren() {
 fn left_and_right_paren_around_text() {
     let str = r#"("a string"
 "another string")"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Paren),
@@ -534,21 +521,21 @@ fn left_and_right_paren_around_text() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 11),
-            LocationPair::new(1, 12, 2, 0),
-            LocationPair::new(2, 1, 2, 16),
-            LocationPair::new(2, 17, 2, 17),
-            LocationPair::new(2, 18, 3, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 11),
+            Metadata::new(1, 12, 2, 0),
+            Metadata::new(2, 1, 2, 16),
+            Metadata::new(2, 17, 2, 17),
+            Metadata::new(2, 18, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn left_and_right_brace() {
     let str = r#"{{ }}"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Brace),
@@ -561,20 +548,20 @@ fn left_and_right_brace() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 6, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 6, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn dash() {
     let str = r#" - -- -"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Symbol(Ascii(b'-')),
@@ -586,19 +573,19 @@ fn dash() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 4, 1, 5),
-            LocationPair::new(1, 7, 1, 7),
-            LocationPair::new(1, 8, 2, 0),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 4, 1, 5),
+            Metadata::new(1, 7, 1, 7),
+            Metadata::new(1, 8, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn colon() {
     let str = r#" : :: :"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Symbol(Ascii(b':')),
@@ -610,19 +597,19 @@ fn colon() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 4, 1, 5),
-            LocationPair::new(1, 7, 1, 7),
-            LocationPair::new(1, 8, 2, 0),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 4, 1, 5),
+            Metadata::new(1, 7, 1, 7),
+            Metadata::new(1, 8, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn comma() {
     let str = r#" , ,, ,"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Symbol(Ascii(b',')),
@@ -635,97 +622,97 @@ fn comma() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 7, 1, 7),
-            LocationPair::new(1, 8, 2, 0),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 7, 1, 7),
+            Metadata::new(1, 8, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn integer_newline_terminated() {
     let str = r#"1234567890"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Integer(1234567890), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 10),
-            LocationPair::new(1, 11, 2, 0),
+            Metadata::new(1, 1, 1, 10),
+            Metadata::new(1, 11, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn integer_zero_newline_terminated() {
     let str = r#"0"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Integer(0), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn integer_colon_terminated() {
     let str = r#"1_234_567_890:"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Integer(1234567890), Symbol(Ascii(b':')), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 13),
-            LocationPair::new(1, 14, 1, 14),
-            LocationPair::new(1, 15, 2, 0),
+            Metadata::new(1, 1, 1, 13),
+            Metadata::new(1, 14, 1, 14),
+            Metadata::new(1, 15, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn integer_dash_terminated() {
     let str = r#"123-456"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Integer(123), Symbol(Ascii(b'-')), Integer(456), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 3),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 7),
-            LocationPair::new(1, 8, 2, 0),
+            Metadata::new(1, 1, 1, 3),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 7),
+            Metadata::new(1, 8, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn integer_comma_terminated() {
     let str = r#"123,456"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Integer(123), Symbol(Ascii(b',')), Integer(456), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 3),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 7),
-            LocationPair::new(1, 8, 2, 0),
+            Metadata::new(1, 1, 1, 3),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 7),
+            Metadata::new(1, 8, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -762,67 +749,67 @@ fn integer_invalid_due_to_utf8_err() {
 #[test]
 fn decimal_newline_terminated() {
     let str = r#"1234567890.0123456789"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Decimal(1234567890, 123456789, 10), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 21),
-            LocationPair::new(1, 22, 2, 0),
+            Metadata::new(1, 1, 1, 21),
+            Metadata::new(1, 22, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn decimal_small() {
     let str = r#"1234567890.0001"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Decimal(1234567890, 1, 4), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 15),
-            LocationPair::new(1, 16, 2, 0),
+            Metadata::new(1, 1, 1, 15),
+            Metadata::new(1, 16, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn decimal_implied_leading_zero() {
     let str = r#".123"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Decimal(0, 123, 3), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 4),
-            LocationPair::new(1, 5, 2, 0),
+            Metadata::new(1, 1, 1, 4),
+            Metadata::new(1, 5, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn symbol_and_decimal() {
     let str = r#". .123"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Symbol(Ascii(b'.')), Decimal(0, 123, 3), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 3, 1, 6),
-            LocationPair::new(1, 7, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 3, 1, 6),
+            Metadata::new(1, 7, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn decimal_colon_terminated() {
     let str = r#"1_234_567_890.0_123_456_789:"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Decimal(1234567890, 123456789, 10),
@@ -833,18 +820,18 @@ fn decimal_colon_terminated() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 27),
-            LocationPair::new(1, 28, 1, 28),
-            LocationPair::new(1, 29, 2, 0),
+            Metadata::new(1, 1, 1, 27),
+            Metadata::new(1, 28, 1, 28),
+            Metadata::new(1, 29, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn decimal_comma_terminated() {
     let str = r#"1_234_567_890.0_123_456_789,12.34"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Decimal(1234567890, 123456789, 10),
@@ -856,12 +843,12 @@ fn decimal_comma_terminated() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 27),
-            LocationPair::new(1, 28, 1, 28),
-            LocationPair::new(1, 29, 1, 33),
-            LocationPair::new(1, 34, 2, 0),
+            Metadata::new(1, 1, 1, 27),
+            Metadata::new(1, 28, 1, 28),
+            Metadata::new(1, 29, 1, 33),
+            Metadata::new(1, 34, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -919,7 +906,7 @@ fn decimal_fractional_invalid_due_to_utf8_err() {
 fn ident() {
     let str = r#"first second
 third"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Ident("first".into()),
@@ -933,43 +920,43 @@ third"#;
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 5),
-            LocationPair::new(1, 7, 1, 12),
-            LocationPair::new(1, 13, 2, 0),
-            LocationPair::new(2, 1, 2, 5),
-            LocationPair::new(2, 6, 3, 0),
+            Metadata::new(1, 1, 1, 5),
+            Metadata::new(1, 7, 1, 12),
+            Metadata::new(1, 13, 2, 0),
+            Metadata::new(2, 1, 2, 5),
+            Metadata::new(2, 6, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn ident_with_mid_and_trailing_digits() {
     let str = r#"alpha123tail456"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Ident("alpha123tail456".into()), Newline], tokens);
     assert_eq!(vec![Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 15),
-            LocationPair::new(1, 16, 2, 0),
+            Metadata::new(1, 1, 1, 15),
+            Metadata::new(1, 16, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn ident_with_underscores() {
     let str = r#"__alpha_bravo"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Ident("__alpha_bravo".into()), Newline], tokens);
     assert_eq!(vec![Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 13),
-            LocationPair::new(1, 14, 2, 0),
+            Metadata::new(1, 1, 1, 13),
+            Metadata::new(1, 14, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -977,7 +964,7 @@ fn ident_with_underscores() {
 fn ident_starts_with_unicode() {
     let str = r#"first µℝ💣second
 third"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Ident("first".into()),
@@ -991,13 +978,13 @@ third"#;
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 5),
-            LocationPair::new(1, 7, 1, 15),
-            LocationPair::new(1, 16, 2, 0),
-            LocationPair::new(2, 1, 2, 5),
-            LocationPair::new(2, 6, 3, 0),
+            Metadata::new(1, 1, 1, 5),
+            Metadata::new(1, 7, 1, 15),
+            Metadata::new(1, 16, 2, 0),
+            Metadata::new(2, 1, 2, 5),
+            Metadata::new(2, 6, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -1005,7 +992,7 @@ third"#;
 fn ident_ends_with_unicode() {
     let str = r#"first second_µℝ💣
 third"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Ident("first".into()),
@@ -1019,20 +1006,20 @@ third"#;
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 5),
-            LocationPair::new(1, 7, 1, 16),
-            LocationPair::new(1, 17, 2, 0),
-            LocationPair::new(2, 1, 2, 5),
-            LocationPair::new(2, 6, 3, 0),
+            Metadata::new(1, 1, 1, 5),
+            Metadata::new(1, 7, 1, 16),
+            Metadata::new(1, 17, 2, 0),
+            Metadata::new(2, 1, 2, 5),
+            Metadata::new(2, 6, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn ident_colon_terminated() {
     let str = r#"first:second"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Ident("first".into()),
@@ -1045,46 +1032,46 @@ fn ident_colon_terminated() {
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 5),
-            LocationPair::new(1, 6, 1, 6),
-            LocationPair::new(1, 7, 1, 12),
-            LocationPair::new(1, 13, 2, 0),
+            Metadata::new(1, 1, 1, 5),
+            Metadata::new(1, 6, 1, 6),
+            Metadata::new(1, 7, 1, 12),
+            Metadata::new(1, 13, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn boolean() {
     let str = r#"true false"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(vec![Boolean(true), Boolean(false), Newline], tokens);
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 4),
-            LocationPair::new(1, 6, 1, 10),
-            LocationPair::new(1, 11, 2, 0),
+            Metadata::new(1, 1, 1, 4),
+            Metadata::new(1, 6, 1, 10),
+            Metadata::new(1, 11, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn boolean_comma_terminated() {
     let str = r#"true false,"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![Boolean(true), Boolean(false), Symbol(Ascii(b',')), Newline],
         tokens
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 4),
-            LocationPair::new(1, 6, 1, 10),
-            LocationPair::new(1, 11, 1, 11),
-            LocationPair::new(1, 12, 2, 0),
+            Metadata::new(1, 1, 1, 4),
+            Metadata::new(1, 6, 1, 10),
+            Metadata::new(1, 11, 1, 11),
+            Metadata::new(1, 12, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -1092,7 +1079,7 @@ fn boolean_comma_terminated() {
 fn mixed_flat_sequence_of_tokens() {
     let str = r#"hello "world"
 42"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Ident("hello".into()),
@@ -1105,20 +1092,20 @@ fn mixed_flat_sequence_of_tokens() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 5),
-            LocationPair::new(1, 7, 1, 13),
-            LocationPair::new(1, 14, 2, 0),
-            LocationPair::new(2, 1, 2, 2),
-            LocationPair::new(2, 3, 3, 0),
+            Metadata::new(1, 1, 1, 5),
+            Metadata::new(1, 7, 1, 13),
+            Metadata::new(1, 14, 2, 0),
+            Metadata::new(2, 1, 2, 2),
+            Metadata::new(2, 3, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn mixed_list_around_list() {
     let str = r#"{([])}"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Brace),
@@ -1133,15 +1120,15 @@ fn mixed_list_around_list() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 3, 1, 3),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 6, 1, 6),
-            LocationPair::new(1, 7, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 3, 1, 3),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 6, 1, 6),
+            Metadata::new(1, 7, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
@@ -1149,7 +1136,7 @@ fn mixed_list_around_list() {
 fn mixed_list_nested() {
     let str = r#"{hello {"world"
 }}"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Brace),
@@ -1165,23 +1152,23 @@ fn mixed_list_nested() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 6),
-            LocationPair::new(1, 8, 1, 8),
-            LocationPair::new(1, 9, 1, 15),
-            LocationPair::new(1, 16, 2, 0),
-            LocationPair::new(2, 1, 2, 1),
-            LocationPair::new(2, 2, 2, 2),
-            LocationPair::new(2, 3, 3, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 6),
+            Metadata::new(1, 8, 1, 8),
+            Metadata::new(1, 9, 1, 15),
+            Metadata::new(1, 16, 2, 0),
+            Metadata::new(2, 1, 2, 1),
+            Metadata::new(2, 2, 2, 2),
+            Metadata::new(2, 3, 3, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn mixed_list_with_one_item_trailing_comma() {
     let str = r#"(1,)"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Paren),
@@ -1194,20 +1181,20 @@ fn mixed_list_with_one_item_trailing_comma() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 3, 1, 3),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 3, 1, 3),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn mixed_list_with_many_items() {
     let str = r#"(1 2, 3)"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Paren),
@@ -1222,22 +1209,22 @@ fn mixed_list_with_many_items() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 7, 1, 7),
-            LocationPair::new(1, 8, 1, 8),
-            LocationPair::new(1, 9, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 7, 1, 7),
+            Metadata::new(1, 8, 1, 8),
+            Metadata::new(1, 9, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn mixed_cons_single_long_tail() {
     let str = r#"1:2 3"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Integer(1),
@@ -1250,20 +1237,20 @@ fn mixed_cons_single_long_tail() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 3, 1, 3),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 6, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 3, 1, 3),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 6, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn mixed_cons_multiple() {
     let str = r#"1:2 3:4"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Integer(1),
@@ -1278,22 +1265,22 @@ fn mixed_cons_multiple() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 3, 1, 3),
-            LocationPair::new(1, 5, 1, 5),
-            LocationPair::new(1, 6, 1, 6),
-            LocationPair::new(1, 7, 1, 7),
-            LocationPair::new(1, 8, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 3, 1, 3),
+            Metadata::new(1, 5, 1, 5),
+            Metadata::new(1, 6, 1, 6),
+            Metadata::new(1, 7, 1, 7),
+            Metadata::new(1, 8, 2, 0),
         ],
-        locations
+        metadata
     );
 }
 
 #[test]
 fn mixed_cons_inside_list() {
     let str = r#"{1:2 3:4}"#;
-    let (tokens, locations) = tok_ok(str);
+    let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
             Left(Brace),
@@ -1310,16 +1297,16 @@ fn mixed_cons_inside_list() {
     );
     assert_eq!(
         vec![
-            LocationPair::new(1, 1, 1, 1),
-            LocationPair::new(1, 2, 1, 2),
-            LocationPair::new(1, 3, 1, 3),
-            LocationPair::new(1, 4, 1, 4),
-            LocationPair::new(1, 6, 1, 6),
-            LocationPair::new(1, 7, 1, 7),
-            LocationPair::new(1, 8, 1, 8),
-            LocationPair::new(1, 9, 1, 9),
-            LocationPair::new(1, 10, 2, 0),
+            Metadata::new(1, 1, 1, 1),
+            Metadata::new(1, 2, 1, 2),
+            Metadata::new(1, 3, 1, 3),
+            Metadata::new(1, 4, 1, 4),
+            Metadata::new(1, 6, 1, 6),
+            Metadata::new(1, 7, 1, 7),
+            Metadata::new(1, 8, 1, 8),
+            Metadata::new(1, 9, 1, 9),
+            Metadata::new(1, 10, 2, 0),
         ],
-        locations
+        metadata
     );
 }

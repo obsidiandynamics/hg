@@ -1,6 +1,7 @@
 mod char_buffer;
 pub mod graphemes;
 pub mod lexer;
+pub mod metadata;
 mod newline_terminated_bytes;
 pub mod parser;
 pub mod symbols;

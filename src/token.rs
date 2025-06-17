@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use crate::types::unqualified_type_name;
 
 #[derive(PartialEq, Eq, Clone)]
@@ -48,36 +48,6 @@ pub enum ListDelimiter {
     Brace,
     Bracket,
     Angle
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Location {
-    pub line: u32,
-    pub column: u32
-}
-
-impl Location {
-    #[inline]
-    pub fn before_start() -> Self {
-        Self {
-            line: 1, column: 0
-        }
-    }
-}
-
-impl From<(u32, u32)> for Location {
-    fn from(value: (u32, u32)) -> Self {
-        let (line, column) = value;
-        Self {
-            line, column
-        }
-    }
-}
-
-impl Display for Location {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "line {}, column {}", self.line, self.column)
-    }
 }
 
 #[cfg(test)]

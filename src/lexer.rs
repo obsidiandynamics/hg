@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 use crate::char_buffer::CharBuffer;
-use crate::token::{Ascii, AsciiSlice, ListDelimiter, Location, Token};
+use crate::token::{Ascii, AsciiSlice, ListDelimiter, Token};
 use std::io;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use crate::graphemes::Grapheme;
+use crate::metadata::{Location, Metadata};
 use crate::newline_terminated_bytes::NewlineTerminatedBytes;
 use crate::symbols::{is_symbol, SymbolString, SymbolTable};
 
@@ -282,11 +283,12 @@ impl<'a, 's> Tokeniser<'a, 's> {
         let start = self.start.clone();
         self.start = self.location.clone();
         self.start.column += 1;
-        Some(Ok((token, start, self.location.clone())))
+        let end = self.location.clone();
+        Some(Ok((token, Metadata { start, end })))
     }
 }
 
-pub type Fragment<'a> = Result<(Token<'a>, Location, Location), Box<Error>>;
+pub type Fragment<'a> = Result<(Token<'a>, Metadata), Box<Error>>;
 
 impl<'a> Iterator for Tokeniser<'a, '_> {
     type Item = Fragment<'a>;

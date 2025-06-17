@@ -1,18 +1,25 @@
+use std::iter::Map;
+use std::vec::IntoIter;
 use hg::lexer::Tokeniser;
 use hg::parser::parse;
-use hg::token::{Ascii, Location, Token};
+use hg::token::{Ascii, Token};
 use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
-use hg::{phrase, verse};
+use hg::{lexer, phrase, verse};
+use hg::metadata::{Location, Metadata};
 use hg::symbols::SymbolTable;
 
 fn tok_ok(str: &str) -> Vec<Token> {
-    Tokeniser::new(str, SymbolTable::default()).map(Result::unwrap).map(|(token, _, _)| token).collect()
+    Tokeniser::new(str, SymbolTable::default()).map(Result::unwrap).map(|(token, _)| token).collect()
+}
+
+fn without_metadata(tokens: Vec<Token>) -> Map<IntoIter<Token>, fn(Token) -> Result<(Token, Metadata), Box<lexer::Error>>> {
+    tokens.into_iter().map(|token| Ok((token, Metadata {start: Location::before_start(), end: Location::before_start()})))
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
-    parse(tokens.into_iter().map(|token| (token, Location::before_start(), Location::before_start())).map(Ok)).unwrap()
+    parse(without_metadata(tokens)).unwrap()
 }
 
 fn string(value: &str) -> Node {
