@@ -351,6 +351,7 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                         }
                         _ => {
                             if is_symbol(byte) {
+                                self.start = self.location.clone();
                                 self.token.push_byte(index, byte);
                                 match self.parse_symbol() {
                                     None => {}
@@ -359,6 +360,7 @@ impl<'a> Iterator for Tokeniser<'a, '_> {
                                     }
                                 }
                             } else {
+                                self.start = self.location.clone();
                                 self.mode = Mode::Ident;
                                 if byte < 0x80 {
                                     self.token.push_byte(index, byte);
