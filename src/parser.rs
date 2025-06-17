@@ -53,9 +53,6 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
                     verse.push(Phrase(phrase));
                 }
             }
-            Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
-                phrase.push(Node::Raw(token, metadata));
-            }
             Token::Left(delimiter) => {
                 let child = parse_list(metadata.start, delimiter, &mut fragments)?;
                 phrase.push(child);
@@ -72,8 +69,9 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
             Token::Symbol(Ascii(b',')) | Token::Right(_) => {
                 return Err(Error::UnexpectedToken(token))
             },
-            Token::Symbol(_) => todo!(),
-            Token::ExtendedSymbol(_) => todo!()
+            Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
+                phrase.push(Node::Raw(token, metadata));
+            }
         }
     }
 
@@ -98,9 +96,6 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                         let phrase = mem::take(&mut phrase);
                         verse.push(Phrase(phrase));
                     }
-                }
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
-                    phrase.push(Node::Raw(token, metadata));
                 }
                 Token::Left(delimiter) => {
                     let child = parse_list(metadata.start, delimiter, fragments)?;
@@ -140,8 +135,9 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                         Err(Error::UnexpectedToken(Token::Right(right_delimiter)))
                     }
                 },
-                Token::Symbol(_) => todo!(),
-                Token::ExtendedSymbol(_) => todo!()
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_)=> {
+                    phrase.push(Node::Raw(token, metadata));
+                }
             }
         } else {
             return Err(Error::UnterminatedList)
@@ -165,9 +161,6 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
         if let Some(fragment) = fragments.next() {
             let (token, metadata) = fragment?;
             match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
-                    tail.push(Node::Raw(token, metadata))
-                }
                 Token::Left(delimiter) => {
                     let child = parse_list(metadata.start, delimiter, fragments)?;
                     tail.push(child);
@@ -197,8 +190,9 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
                         Err(Error::EmptyConsSegment)
                     }
                 },
-                Token::Symbol(_) => todo!(),
-                Token::ExtendedSymbol(_) => todo!()
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
+                    tail.push(Node::Raw(token, metadata))
+                }
             }
         } else {
             return Err(Error::UnterminatedCons)
@@ -212,10 +206,6 @@ fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, sym
         Some(fragment) => {
             let (token, metadata) = fragment?;
             match token {
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) => {
-                    let end = metadata.end.clone();
-                    Ok(Node::Prefix(symbol, Box::new(Node::Raw(token, metadata)), Metadata { start, end }))
-                }
                 Token::Left(delimiter) => {
                     let child = parse_list(metadata.start, delimiter, fragments)?;
                     let end = child.metadata().end.clone();
@@ -224,8 +214,10 @@ fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, sym
                 Token::Newline | Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Symbol(Ascii(b':')) | Token::Symbol(Ascii(b'-')) => {
                     Err(Error::UnexpectedToken(token))
                 },
-                Token::Symbol(_) => todo!(),
-                Token::ExtendedSymbol(_) => todo!()
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) |  Token::Symbol(_) | Token::ExtendedSymbol(_) => {
+                    let end = metadata.end.clone();
+                    Ok(Node::Prefix(symbol, Box::new(Node::Raw(token, metadata)), Metadata { start, end }))
+                }
             }
         }
         None => {

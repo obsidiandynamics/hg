@@ -1,8 +1,8 @@
 use crate::metadata::{Location, Metadata};
 use crate::parser::{parse, Error};
 use crate::token::ListDelimiter::{Brace, Paren};
-use crate::token::Token::{Decimal, Ident, Integer, Left, Newline, Right, Symbol, Text};
-use crate::token::{Ascii, Token};
+use crate::token::Token::{Decimal, ExtendedSymbol, Ident, Integer, Left, Newline, Right, Symbol, Text};
+use crate::token::{Ascii, AsciiSlice, Token};
 use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
 use crate::{lexer, phrase, verse};
@@ -28,7 +28,7 @@ fn parse_err(tokens: Vec<Token>) -> Error {
 
 #[test]
 fn flat_sequence_of_tokens() {
-    let verse = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Integer(42), Newline]);
+    let verse = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Integer(42), Symbol(Ascii(b'?')), ExtendedSymbol(AsciiSlice(&[b':', b':'])), Newline]);
     assert_eq!(verse![
         phrase![
             Raw(Ident("hello".into()), Metadata::bounds(1, 1, 1, 2)),
@@ -36,6 +36,8 @@ fn flat_sequence_of_tokens() {
         ],
         phrase![
             Raw(Integer(42), Metadata::bounds(1, 7, 1, 8)),
+            Raw(Symbol(Ascii(b'?')), Metadata::bounds(1, 9, 1, 10)),
+            Raw(ExtendedSymbol(AsciiSlice(&[b':', b':'])), Metadata::bounds(1, 11, 1, 12)),
         ]
     ], verse);
 }
