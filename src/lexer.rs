@@ -278,12 +278,12 @@ impl<'a, 's> Tokeniser<'a, 's> {
         self.location.column -= 1;
         self.frame_token(token)
     }
-    
+
     fn frame_token(&mut self, token: Token<'a>) -> Option<Fragment<'a>> {
-        let start = self.start.clone();
+        let start = Some(self.start.clone());
         self.start = self.location.clone();
         self.start.column += 1;
-        let end = self.location.clone();
+        let end = Some(self.location.clone());
         Some(Ok((token, Metadata { start, end })))
     }
 }

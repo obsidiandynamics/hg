@@ -84,10 +84,10 @@ fn text_unescaped() {
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 13),
-            Metadata::new(1, 14, 2, 0),
-            Metadata::new(2, 1, 2, 4),
-            Metadata::new(2, 5, 3, 0)
+            Metadata::bounds(1, 1, 1, 13),
+            Metadata::bounds(1, 14, 2, 0),
+            Metadata::bounds(2, 1, 2, 4),
+            Metadata::bounds(2, 5, 3, 0)
         ],
         metadata
     );
@@ -110,10 +110,10 @@ fn text_unescaped_with_utf8() {
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 17),
-            Metadata::new(1, 18, 2, 0),
-            Metadata::new(2, 1, 2, 7),
-            Metadata::new(2, 8, 3, 0)
+            Metadata::bounds(1, 1, 1, 17),
+            Metadata::bounds(1, 18, 2, 0),
+            Metadata::bounds(2, 1, 2, 7),
+            Metadata::bounds(2, 8, 3, 0)
         ],
         metadata
     );
@@ -127,8 +127,8 @@ fn text_escaped_newline() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );
@@ -142,8 +142,8 @@ fn text_escaped_nul() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );
@@ -157,8 +157,8 @@ fn text_escaped_hex() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 11),
-            Metadata::new(1, 12, 2, 0),
+            Metadata::bounds(1, 1, 1, 11),
+            Metadata::bounds(1, 12, 2, 0),
         ],
         metadata
     );
@@ -172,8 +172,8 @@ fn text_escaped_unicode_fixed() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 13),
-            Metadata::new(1, 14, 2, 0),
+            Metadata::bounds(1, 1, 1, 13),
+            Metadata::bounds(1, 14, 2, 0),
         ],
         metadata
     );
@@ -187,8 +187,8 @@ fn text_escaped_unicode_fixed_ascii() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 13),
-            Metadata::new(1, 14, 2, 0),
+            Metadata::bounds(1, 1, 1, 13),
+            Metadata::bounds(1, 14, 2, 0),
         ],
         metadata
     );
@@ -202,8 +202,8 @@ fn text_escaped_unicode_variable_24() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 16),
-            Metadata::new(1, 17, 2, 0),
+            Metadata::bounds(1, 1, 1, 16),
+            Metadata::bounds(1, 17, 2, 0),
         ],
         metadata
     );
@@ -217,8 +217,8 @@ fn text_escaped_unicode_variable_16() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 15),
-            Metadata::new(1, 16, 2, 0),
+            Metadata::bounds(1, 1, 1, 15),
+            Metadata::bounds(1, 16, 2, 0),
         ],
         metadata
     );
@@ -232,8 +232,8 @@ fn text_escaped_unicode_variable_ascii() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 15),
-            Metadata::new(1, 16, 2, 0),
+            Metadata::bounds(1, 1, 1, 15),
+            Metadata::bounds(1, 16, 2, 0),
         ],
         metadata
     );
@@ -267,8 +267,8 @@ fn text_escaped_newline_with_utf8() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 10),
-            Metadata::new(1, 11, 2, 0),
+            Metadata::bounds(1, 1, 1, 10),
+            Metadata::bounds(1, 11, 2, 0),
         ],
         metadata
     );
@@ -282,8 +282,8 @@ fn text_escaped_carriage_return() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );
@@ -297,8 +297,8 @@ fn text_escaped_tab() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );
@@ -312,8 +312,8 @@ fn text_escaped_quote() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );
@@ -327,8 +327,8 @@ fn text_escaped_backslash() {
     assert_eq!(vec![Owned, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );
@@ -384,10 +384,10 @@ fn character_unescaped() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 3, 1, 5),
-            Metadata::new(1, 6, 2, 0),
-            Metadata::new(2, 1, 2, 3),
-            Metadata::new(2, 4, 3, 0),
+            Metadata::bounds(1, 3, 1, 5),
+            Metadata::bounds(1, 6, 2, 0),
+            Metadata::bounds(2, 1, 2, 3),
+            Metadata::bounds(2, 4, 3, 0),
         ],
         metadata
     );
@@ -404,10 +404,10 @@ fn character_unescaped_with_unicode() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 3),
-            Metadata::new(1, 4, 2, 0),
-            Metadata::new(2, 1, 2, 3),
-            Metadata::new(2, 4, 3, 0),
+            Metadata::bounds(1, 1, 1, 3),
+            Metadata::bounds(1, 4, 2, 0),
+            Metadata::bounds(2, 1, 2, 3),
+            Metadata::bounds(2, 4, 3, 0),
         ],
         metadata
     );
@@ -420,8 +420,8 @@ fn character_escaped_newline() {
     assert_eq!(vec![Character('\n'), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 4),
-            Metadata::new(1, 5, 2, 0),
+            Metadata::bounds(1, 1, 1, 4),
+            Metadata::bounds(1, 5, 2, 0),
         ],
         metadata
     );
@@ -493,11 +493,11 @@ fn left_and_right_paren() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 6, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 6, 2, 0),
         ],
         metadata
     );
@@ -521,12 +521,12 @@ fn left_and_right_paren_around_text() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 11),
-            Metadata::new(1, 12, 2, 0),
-            Metadata::new(2, 1, 2, 16),
-            Metadata::new(2, 17, 2, 17),
-            Metadata::new(2, 18, 3, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 11),
+            Metadata::bounds(1, 12, 2, 0),
+            Metadata::bounds(2, 1, 2, 16),
+            Metadata::bounds(2, 17, 2, 17),
+            Metadata::bounds(2, 18, 3, 0),
         ],
         metadata
     );
@@ -548,11 +548,11 @@ fn left_and_right_brace() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 6, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 6, 2, 0),
         ],
         metadata
     );
@@ -573,10 +573,10 @@ fn dash() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 4, 1, 5),
-            Metadata::new(1, 7, 1, 7),
-            Metadata::new(1, 8, 2, 0),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 4, 1, 5),
+            Metadata::bounds(1, 7, 1, 7),
+            Metadata::bounds(1, 8, 2, 0),
         ],
         metadata
     );
@@ -597,10 +597,10 @@ fn colon() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 4, 1, 5),
-            Metadata::new(1, 7, 1, 7),
-            Metadata::new(1, 8, 2, 0),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 4, 1, 5),
+            Metadata::bounds(1, 7, 1, 7),
+            Metadata::bounds(1, 8, 2, 0),
         ],
         metadata
     );
@@ -622,11 +622,11 @@ fn comma() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 7, 1, 7),
-            Metadata::new(1, 8, 2, 0),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 7, 1, 7),
+            Metadata::bounds(1, 8, 2, 0),
         ],
         metadata
     );
@@ -639,8 +639,8 @@ fn integer_newline_terminated() {
     assert_eq!(vec![Integer(1234567890), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 10),
-            Metadata::new(1, 11, 2, 0),
+            Metadata::bounds(1, 1, 1, 10),
+            Metadata::bounds(1, 11, 2, 0),
         ],
         metadata
     );
@@ -653,8 +653,8 @@ fn integer_zero_newline_terminated() {
     assert_eq!(vec![Integer(0), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 2, 0),
         ],
         metadata
     );
@@ -670,9 +670,9 @@ fn integer_colon_terminated() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 13),
-            Metadata::new(1, 14, 1, 14),
-            Metadata::new(1, 15, 2, 0),
+            Metadata::bounds(1, 1, 1, 13),
+            Metadata::bounds(1, 14, 1, 14),
+            Metadata::bounds(1, 15, 2, 0),
         ],
         metadata
     );
@@ -688,10 +688,10 @@ fn integer_dash_terminated() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 3),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 7),
-            Metadata::new(1, 8, 2, 0),
+            Metadata::bounds(1, 1, 1, 3),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 7),
+            Metadata::bounds(1, 8, 2, 0),
         ],
         metadata
     );
@@ -707,10 +707,10 @@ fn integer_comma_terminated() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 3),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 7),
-            Metadata::new(1, 8, 2, 0),
+            Metadata::bounds(1, 1, 1, 3),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 7),
+            Metadata::bounds(1, 8, 2, 0),
         ],
         metadata
     );
@@ -753,8 +753,8 @@ fn decimal_newline_terminated() {
     assert_eq!(vec![Decimal(1234567890, 123456789, 10), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 21),
-            Metadata::new(1, 22, 2, 0),
+            Metadata::bounds(1, 1, 1, 21),
+            Metadata::bounds(1, 22, 2, 0),
         ],
         metadata
     );
@@ -767,8 +767,8 @@ fn decimal_small() {
     assert_eq!(vec![Decimal(1234567890, 1, 4), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 15),
-            Metadata::new(1, 16, 2, 0),
+            Metadata::bounds(1, 1, 1, 15),
+            Metadata::bounds(1, 16, 2, 0),
         ],
         metadata
     );
@@ -781,8 +781,8 @@ fn decimal_implied_leading_zero() {
     assert_eq!(vec![Decimal(0, 123, 3), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 4),
-            Metadata::new(1, 5, 2, 0),
+            Metadata::bounds(1, 1, 1, 4),
+            Metadata::bounds(1, 5, 2, 0),
         ],
         metadata
     );
@@ -798,9 +798,9 @@ fn symbol_and_decimal() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 3, 1, 6),
-            Metadata::new(1, 7, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 3, 1, 6),
+            Metadata::bounds(1, 7, 2, 0),
         ],
         metadata
     );
@@ -820,9 +820,9 @@ fn decimal_colon_terminated() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 27),
-            Metadata::new(1, 28, 1, 28),
-            Metadata::new(1, 29, 2, 0),
+            Metadata::bounds(1, 1, 1, 27),
+            Metadata::bounds(1, 28, 1, 28),
+            Metadata::bounds(1, 29, 2, 0),
         ],
         metadata
     );
@@ -843,10 +843,10 @@ fn decimal_comma_terminated() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 27),
-            Metadata::new(1, 28, 1, 28),
-            Metadata::new(1, 29, 1, 33),
-            Metadata::new(1, 34, 2, 0),
+            Metadata::bounds(1, 1, 1, 27),
+            Metadata::bounds(1, 28, 1, 28),
+            Metadata::bounds(1, 29, 1, 33),
+            Metadata::bounds(1, 34, 2, 0),
         ],
         metadata
     );
@@ -920,11 +920,11 @@ third"#;
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 5),
-            Metadata::new(1, 7, 1, 12),
-            Metadata::new(1, 13, 2, 0),
-            Metadata::new(2, 1, 2, 5),
-            Metadata::new(2, 6, 3, 0),
+            Metadata::bounds(1, 1, 1, 5),
+            Metadata::bounds(1, 7, 1, 12),
+            Metadata::bounds(1, 13, 2, 0),
+            Metadata::bounds(2, 1, 2, 5),
+            Metadata::bounds(2, 6, 3, 0),
         ],
         metadata
     );
@@ -938,8 +938,8 @@ fn ident_with_mid_and_trailing_digits() {
     assert_eq!(vec![Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 15),
-            Metadata::new(1, 16, 2, 0),
+            Metadata::bounds(1, 1, 1, 15),
+            Metadata::bounds(1, 16, 2, 0),
         ],
         metadata
     );
@@ -953,8 +953,8 @@ fn ident_with_underscores() {
     assert_eq!(vec![Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 13),
-            Metadata::new(1, 14, 2, 0),
+            Metadata::bounds(1, 1, 1, 13),
+            Metadata::bounds(1, 14, 2, 0),
         ],
         metadata
     );
@@ -978,11 +978,11 @@ third"#;
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 5),
-            Metadata::new(1, 7, 1, 15),
-            Metadata::new(1, 16, 2, 0),
-            Metadata::new(2, 1, 2, 5),
-            Metadata::new(2, 6, 3, 0),
+            Metadata::bounds(1, 1, 1, 5),
+            Metadata::bounds(1, 7, 1, 15),
+            Metadata::bounds(1, 16, 2, 0),
+            Metadata::bounds(2, 1, 2, 5),
+            Metadata::bounds(2, 6, 3, 0),
         ],
         metadata
     );
@@ -1006,11 +1006,11 @@ third"#;
     assert_eq!(vec![Borrowed, Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 5),
-            Metadata::new(1, 7, 1, 16),
-            Metadata::new(1, 17, 2, 0),
-            Metadata::new(2, 1, 2, 5),
-            Metadata::new(2, 6, 3, 0),
+            Metadata::bounds(1, 1, 1, 5),
+            Metadata::bounds(1, 7, 1, 16),
+            Metadata::bounds(1, 17, 2, 0),
+            Metadata::bounds(2, 1, 2, 5),
+            Metadata::bounds(2, 6, 3, 0),
         ],
         metadata
     );
@@ -1032,10 +1032,10 @@ fn ident_colon_terminated() {
     assert_eq!(vec![Borrowed, NA, Borrowed, NA], is_owned(tokens));
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 5),
-            Metadata::new(1, 6, 1, 6),
-            Metadata::new(1, 7, 1, 12),
-            Metadata::new(1, 13, 2, 0),
+            Metadata::bounds(1, 1, 1, 5),
+            Metadata::bounds(1, 6, 1, 6),
+            Metadata::bounds(1, 7, 1, 12),
+            Metadata::bounds(1, 13, 2, 0),
         ],
         metadata
     );
@@ -1048,9 +1048,9 @@ fn boolean() {
     assert_eq!(vec![Boolean(true), Boolean(false), Newline], tokens);
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 4),
-            Metadata::new(1, 6, 1, 10),
-            Metadata::new(1, 11, 2, 0),
+            Metadata::bounds(1, 1, 1, 4),
+            Metadata::bounds(1, 6, 1, 10),
+            Metadata::bounds(1, 11, 2, 0),
         ],
         metadata
     );
@@ -1066,10 +1066,10 @@ fn boolean_comma_terminated() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 4),
-            Metadata::new(1, 6, 1, 10),
-            Metadata::new(1, 11, 1, 11),
-            Metadata::new(1, 12, 2, 0),
+            Metadata::bounds(1, 1, 1, 4),
+            Metadata::bounds(1, 6, 1, 10),
+            Metadata::bounds(1, 11, 1, 11),
+            Metadata::bounds(1, 12, 2, 0),
         ],
         metadata
     );
@@ -1092,11 +1092,11 @@ fn mixed_flat_sequence_of_tokens() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 5),
-            Metadata::new(1, 7, 1, 13),
-            Metadata::new(1, 14, 2, 0),
-            Metadata::new(2, 1, 2, 2),
-            Metadata::new(2, 3, 3, 0),
+            Metadata::bounds(1, 1, 1, 5),
+            Metadata::bounds(1, 7, 1, 13),
+            Metadata::bounds(1, 14, 2, 0),
+            Metadata::bounds(2, 1, 2, 2),
+            Metadata::bounds(2, 3, 3, 0),
         ],
         metadata
     );
@@ -1120,13 +1120,13 @@ fn mixed_list_around_list() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 3, 1, 3),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 6, 1, 6),
-            Metadata::new(1, 7, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 3, 1, 3),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 6, 1, 6),
+            Metadata::bounds(1, 7, 2, 0),
         ],
         metadata
     );
@@ -1152,14 +1152,14 @@ fn mixed_list_nested() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 6),
-            Metadata::new(1, 8, 1, 8),
-            Metadata::new(1, 9, 1, 15),
-            Metadata::new(1, 16, 2, 0),
-            Metadata::new(2, 1, 2, 1),
-            Metadata::new(2, 2, 2, 2),
-            Metadata::new(2, 3, 3, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 6),
+            Metadata::bounds(1, 8, 1, 8),
+            Metadata::bounds(1, 9, 1, 15),
+            Metadata::bounds(1, 16, 2, 0),
+            Metadata::bounds(2, 1, 2, 1),
+            Metadata::bounds(2, 2, 2, 2),
+            Metadata::bounds(2, 3, 3, 0),
         ],
         metadata
     );
@@ -1181,11 +1181,11 @@ fn mixed_list_with_one_item_trailing_comma() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 3, 1, 3),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 3, 1, 3),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 2, 0),
         ],
         metadata
     );
@@ -1209,13 +1209,13 @@ fn mixed_list_with_many_items() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 7, 1, 7),
-            Metadata::new(1, 8, 1, 8),
-            Metadata::new(1, 9, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 7, 1, 7),
+            Metadata::bounds(1, 8, 1, 8),
+            Metadata::bounds(1, 9, 2, 0),
         ],
         metadata
     );
@@ -1237,11 +1237,11 @@ fn mixed_cons_single_long_tail() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 3, 1, 3),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 6, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 3, 1, 3),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 6, 2, 0),
         ],
         metadata
     );
@@ -1265,13 +1265,13 @@ fn mixed_cons_multiple() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 3, 1, 3),
-            Metadata::new(1, 5, 1, 5),
-            Metadata::new(1, 6, 1, 6),
-            Metadata::new(1, 7, 1, 7),
-            Metadata::new(1, 8, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 3, 1, 3),
+            Metadata::bounds(1, 5, 1, 5),
+            Metadata::bounds(1, 6, 1, 6),
+            Metadata::bounds(1, 7, 1, 7),
+            Metadata::bounds(1, 8, 2, 0),
         ],
         metadata
     );
@@ -1297,15 +1297,15 @@ fn mixed_cons_inside_list() {
     );
     assert_eq!(
         vec![
-            Metadata::new(1, 1, 1, 1),
-            Metadata::new(1, 2, 1, 2),
-            Metadata::new(1, 3, 1, 3),
-            Metadata::new(1, 4, 1, 4),
-            Metadata::new(1, 6, 1, 6),
-            Metadata::new(1, 7, 1, 7),
-            Metadata::new(1, 8, 1, 8),
-            Metadata::new(1, 9, 1, 9),
-            Metadata::new(1, 10, 2, 0),
+            Metadata::bounds(1, 1, 1, 1),
+            Metadata::bounds(1, 2, 1, 2),
+            Metadata::bounds(1, 3, 1, 3),
+            Metadata::bounds(1, 4, 1, 4),
+            Metadata::bounds(1, 6, 1, 6),
+            Metadata::bounds(1, 7, 1, 7),
+            Metadata::bounds(1, 8, 1, 8),
+            Metadata::bounds(1, 9, 1, 9),
+            Metadata::bounds(1, 10, 2, 0),
         ],
         metadata
     );

@@ -1,11 +1,24 @@
+use crate::metadata::Metadata;
 use crate::token::Token;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node<'a> {
-    Raw(Token<'a>),
-    List(Vec<Verse<'a>>),
-    Cons(Box<Node<'a>>, Phrase<'a>),
-    Prefix(Token<'a>, Box<Node<'a>>)
+    Raw(Token<'a>, Metadata),
+    List(Vec<Verse<'a>>, Metadata),
+    Cons(Box<Node<'a>>, Phrase<'a>, Metadata),
+    Prefix(Token<'a>, Box<Node<'a>>, Metadata)
+}
+
+impl Node<'_> {
+    #[inline]
+    pub fn metadata(&self) -> &Metadata {
+        match self {
+            Node::Raw(_, metadata) => metadata,
+            Node::List(_, metadata) => metadata,
+            Node::Cons(_, _, metadata) => metadata,
+            Node::Prefix(_, _, metadata) => metadata,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -48,6 +61,7 @@ macro_rules! verse {
 
 #[cfg(test)]
 mod tests {
+    use crate::metadata::Metadata;
     use crate::token::Token;
     use crate::tree::{Node, Phrase, Verse};
 
@@ -59,15 +73,15 @@ mod tests {
 
     #[test]
     fn nonempty_phrase() {
-        let phrase = phrase![Node::Raw(Token::Integer(1))];
-        assert_eq!(Phrase(vec![Node::Raw(Token::Integer(1))]), phrase);
+        let phrase = phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())];
+        assert_eq!(Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())]), phrase);
     }
     
     #[test]
     fn vec_from_phrase() {
-        let phrase = phrase![Node::Raw(Token::Integer(1))];
+        let phrase = phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())];
         let vec: Vec<_> = phrase.into();
-        assert_eq!(vec![Node::Raw(Token::Integer(1))], vec);
+        assert_eq!(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())], vec);
     }
 
     #[test]
@@ -78,14 +92,14 @@ mod tests {
 
     #[test]
     fn nonempty_verse() {
-        let verse = verse![phrase![Node::Raw(Token::Integer(1))]];
-        assert_eq!(Verse(vec![Phrase(vec![Node::Raw(Token::Integer(1))])]), verse);
+        let verse = verse![phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())]];
+        assert_eq!(Verse(vec![Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())])]), verse);
     }
 
     #[test]
     fn vec_from_verse() {
-        let verse = verse![phrase![Node::Raw(Token::Integer(1))]];
+        let verse = verse![phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())]];
         let vec: Vec<_> = verse.into();
-        assert_eq!(vec![Phrase(vec![Node::Raw(Token::Integer(1))])], vec);
+        assert_eq!(vec![Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())])], vec);
     }
 }

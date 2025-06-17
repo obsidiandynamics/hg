@@ -1,21 +1,21 @@
-use std::iter::Map;
-use std::vec::IntoIter;
 use hg::lexer::Tokeniser;
+use hg::metadata::Metadata;
 use hg::parser::parse;
-use hg::token::{Ascii, Token};
+use hg::symbols::SymbolTable;
 use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
+use hg::token::{Ascii, Token};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
 use hg::{lexer, phrase, verse};
-use hg::metadata::{Location, Metadata};
-use hg::symbols::SymbolTable;
+use std::iter::Map;
+use std::vec::IntoIter;
 
 fn tok_ok(str: &str) -> Vec<Token> {
     Tokeniser::new(str, SymbolTable::default()).map(Result::unwrap).map(|(token, _)| token).collect()
 }
 
 fn without_metadata(tokens: Vec<Token>) -> Map<IntoIter<Token>, fn(Token) -> Result<(Token, Metadata), Box<lexer::Error>>> {
-    tokens.into_iter().map(|token| Ok((token, Metadata {start: Location::before_start(), end: Location::before_start()})))
+    tokens.into_iter().map(|token| Ok((token, Metadata::unspecified())))
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
@@ -23,33 +23,34 @@ fn parse_ok(tokens: Vec<Token>) -> Verse {
 }
 
 fn string(value: &str) -> Node {
-    Raw(Text(value.into()))
+    Raw(Text(value.into()), Metadata::unspecified())
 }
 
 fn integer(value: u128) -> Node<'static> {
-    Raw(Integer(value))
+    Raw(Integer(value), Metadata::unspecified())
 }
 
 fn decimal(whole: u128, fractional: u128, scale: u8) -> Node<'static> {
-    Raw(Decimal(whole, fractional, scale))
+    Raw(Decimal(whole, fractional, scale), Metadata::unspecified())
 }
 
 fn boolean(value: bool) -> Node<'static> {
-    Raw(Boolean(value))
+    Raw(Boolean(value), Metadata::unspecified())
 }
 
 fn null() -> Node<'static> {
-    Raw(Ident("null".into()))
+    Raw(Ident("null".into()), Metadata::unspecified())
 }
 
 fn negative(value: impl Into<Node<'static>>) -> Node<'static> {
-    Prefix(Symbol(Ascii(b'-')), Box::new(value.into()))
+    Prefix(Symbol(Ascii(b'-')), Box::new(value.into()), Metadata::unspecified())
 }
 
 fn key_value(key: &'static str, value: Node<'static>) -> Node<'static> {
     Cons(
-        Box::new(Raw(Text(key.into()))),
-        phrase![value]
+        Box::new(Raw(Text(key.into()), Metadata::unspecified())),
+        phrase![value], 
+        Metadata::unspecified()
     )
 }
 
@@ -65,7 +66,7 @@ impl ArrayBuilder {
 impl From<ArrayBuilder> for Node<'static> {
     fn from(array_builder: ArrayBuilder) -> Self {
         let verses = array_builder.0.into_iter().map(|element| verse![phrase![element]]).collect();
-        List(verses)
+        List(verses, Metadata::unspecified())
     }
 }
 
@@ -84,7 +85,7 @@ impl ObjectBuilder {
 impl From<ObjectBuilder> for Node<'static> {
     fn from(object_builder: ObjectBuilder) -> Self {
         let verses = object_builder.0.into_iter().map(|(key, value)| verse![phrase![key_value(key, value)]]).collect();
-        List(verses)
+        List(verses, Metadata::unspecified())
     }
 }
 

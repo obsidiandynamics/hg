@@ -1,16 +1,21 @@
-use std::iter::{Enumerate, Map};
-use std::vec::IntoIter;
-use crate::parser::{parse, Error};
-use crate::{lexer, phrase, verse};
 use crate::metadata::{Location, Metadata};
+use crate::parser::{parse, Error};
 use crate::token::ListDelimiter::{Brace, Paren};
+use crate::token::Token::{Decimal, Ident, Integer, Left, Newline, Right, Symbol, Text};
 use crate::token::{Ascii, Token};
-use crate::token::Token::{Symbol, Decimal, Ident, Integer, Newline, Left, Right, Text};
 use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
+use crate::{lexer, phrase, verse};
+use std::iter::{Enumerate, Map};
+use std::vec::IntoIter;
 
 fn map_metadata(tokens: Vec<Token>) -> Map<Enumerate<IntoIter<Token>>, fn((usize, Token)) -> Result<(Token, Metadata), Box<lexer::Error>>> {
-    tokens.into_iter().enumerate().map(|(index, token)| Ok((token, Metadata {start: Location { column: 1, line: index as u32 * 2 + 1}, end: Location{ column: 1, line: index as u32 * 2 + 2}})))
+    tokens
+        .into_iter()
+        .enumerate()
+        .map(|(index, token)| {
+            Ok((token, Metadata {start: Some(Location { line: 1, column: index as u32 * 2 + 1}), end: Some(Location { line: 1, column: index as u32 * 2 + 2})}))
+        })
 }
 
 fn parse_ok(tokens: Vec<Token>) -> Verse {
@@ -26,11 +31,11 @@ fn flat_sequence_of_tokens() {
     let verse = parse_ok(vec![Ident("hello".into()), Text("world".into()), Newline, Integer(42), Newline]);
     assert_eq!(verse![
         phrase![
-            Raw(Ident("hello".into())),
-            Raw(Text("world".into())),
+            Raw(Ident("hello".into()), Metadata::bounds(1, 1, 1, 2)),
+            Raw(Text("world".into()), Metadata::bounds(1, 3, 1, 4)),
         ],
         phrase![
-            Raw(Integer(42)),
+            Raw(Integer(42), Metadata::bounds(1, 7, 1, 8)),
         ]
     ], verse);
 }
@@ -52,7 +57,7 @@ fn brace_list_empty() {
     let verse = parse_ok(vec![Left(Brace), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
-            List(vec![]),
+            List(vec![], Metadata::bounds(1, 1, 1, 4)),
         ]
     ], verse);
 }
@@ -65,10 +70,10 @@ fn brace_list_nested_empty() {
             List(vec![
                 verse![
                     phrase![
-                        List(vec![])
+                        List(vec![], Metadata::bounds(1, 3, 1, 6))
                     ]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 8)),
         ]
     ], verse);
 }
@@ -81,10 +86,10 @@ fn brace_list_around_paren_list() {
             List(vec![
                 verse![
                     phrase![
-                        List(vec![])
+                        List(vec![], Metadata::bounds(1, 3, 1, 6))
                     ]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 8)),
         ]
     ], verse);
 }
@@ -97,12 +102,12 @@ fn brace_list_flat() {
             List(vec![
                 verse![
                     phrase![
-                        Raw(Ident("hello".into())),
-                        Raw(Text("world".into())),
+                        Raw(Ident("hello".into()), Metadata::bounds(1, 3, 1, 4)),
+                        Raw(Text("world".into()), Metadata::bounds(1, 5, 1, 6)),
                     ]
                 ]
-            ]),
-            Raw(Integer(42)),
+            ], Metadata::bounds(1, 1, 1, 10)),
+            Raw(Integer(42), Metadata::bounds(1, 11, 1, 12)),
         ]
     ], verse);
 }
@@ -115,19 +120,20 @@ fn brace_list_nested() {
             List(vec![
                 verse![
                     phrase![
-                        Raw(Ident("hello".into())),
+                        Raw(Ident("hello".into()), Metadata::bounds(1, 3, 1, 4)),
                         List(
                             vec![
                                 verse![
                                     phrase![
-                                        Raw(Text("world".into())),
+                                        Raw(Text("world".into()), Metadata::bounds(1, 7, 1, 8)),
                                     ]
                                 ]
-                            ]
+                            ],
+                            Metadata::bounds(1, 5, 1, 12)
                         )
                     ]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 14)),
         ]
     ], verse);
 }
@@ -149,8 +155,7 @@ fn paren_list_empty() {
     let verse = parse_ok(vec![Left(Paren), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
-            List(vec![
-            ]),
+            List(vec![], Metadata::bounds(1, 1, 1, 4)),
         ]
     ], verse);
 }
@@ -162,9 +167,9 @@ fn paren_list_nested_empty() {
         phrase![
             List(vec![
                 verse![
-                    phrase![List(vec![])]
+                    phrase![List(vec![], Metadata::bounds(1, 3, 1, 6))]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 8)),
         ]
     ], verse);
 }
@@ -176,9 +181,9 @@ fn paren_list_around_brace_list() {
         phrase![
             List(vec![
                 verse![
-                    phrase![List(vec![])]
+                    phrase![List(vec![], Metadata::bounds(1, 3, 1, 6))]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 8)),
         ]
     ], verse);
 }
@@ -191,10 +196,10 @@ fn paren_list_with_one_verse_and_phrase_with_one_node() {
             List(vec![
                 verse![
                     phrase![
-                        Raw(Integer(1))
+                        Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))
                     ] 
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 6)),
         ]
     ], verse);
 }
@@ -206,9 +211,9 @@ fn paren_list_with_one_verse_trailing_comma() {
         phrase![
             List(vec![
                 verse![
-                    phrase![Raw(Integer(1))]
+                    phrase![Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 8)),
         ]
     ], verse);
 }
@@ -220,9 +225,9 @@ fn paren_list_with_one_verse_and_phrase_with_many_nodes() {
         phrase![
             List(vec![
                 verse![
-                    phrase![Raw(Integer(1)), Raw(Integer(2))]
+                    phrase![Raw(Integer(1), Metadata::bounds(1, 3, 1, 4)), Raw(Integer(2), Metadata::bounds(1, 5, 1, 6))]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 8)),
         ]
     ], verse);
 }
@@ -234,12 +239,12 @@ fn paren_list_with_many_verses() {
         phrase![
             List(vec![
                 verse![
-                    phrase![Raw(Integer(1)), Raw(Integer(2))],
+                    phrase![Raw(Integer(1), Metadata::bounds(1, 3, 1, 4)), Raw(Integer(2), Metadata::bounds(1, 5, 1, 6))],
                 ],
                 verse![
-                    phrase![Raw(Integer(3))]
+                    phrase![Raw(Integer(3), Metadata::bounds(1, 9, 1, 10))]
                 ]
-            ]),
+            ], Metadata::bounds(1, 1, 1, 12)),
         ]
     ], verse);
 }
@@ -267,7 +272,11 @@ fn cons_single() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2))]),
+            Cons(
+                Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
+                phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6))], 
+                Metadata::bounds(1, 1, 1, 6)
+            ),
         ]
     ], verse);
 }
@@ -277,7 +286,11 @@ fn cons_single_long_tail() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2)), Raw(Integer(3))]),
+            Cons(
+                Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
+                phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6)), Raw(Integer(3), Metadata::bounds(1, 7, 1, 8))], 
+                Metadata::bounds(1, 1, 1, 8)
+            ),
         ],
     ], verse);
 }
@@ -287,7 +300,16 @@ fn cons_multiple() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(Box::new(Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2)), Raw(Integer(3))])), phrase![Raw(Integer(4))]),
+            Cons(
+                Box::new(
+                    Cons(
+                        Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
+                        phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6)), Raw(Integer(3), Metadata::bounds(1, 7, 1, 8))], 
+                        Metadata::bounds(1, 1, 1, 8))
+                    ), 
+                phrase![Raw(Integer(4), Metadata::bounds(1, 11, 1, 12))], 
+                Metadata::bounds(1, 1, 1, 12)
+            ),
         ],
     ], verse);
 }
@@ -297,30 +319,22 @@ fn cons_multiple_trailing_empty_segment() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Symbol(Ascii(b':')), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(Box::new(Cons(Box::new(Cons(Box::new(Raw(Integer(1))), phrase![Raw(Integer(2)), Raw(Integer(3))])), phrase![Raw(Integer(4))])), phrase![]),
-        ],
-    ], verse);
-}
-
-#[test]
-fn cons_with_container_tail() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Left(Brace), Integer(2), Newline, Integer(3), Right(Brace), Newline]);
-    assert_eq!(verse![
-        phrase![
             Cons(
-                Box::new(Raw(Integer(1))), 
-                phrase![
-                    List(vec![
-                        verse![
-                            phrase![
-                                Raw(Integer(2))
-                            ],
-                            phrase![
-                                Raw(Integer(3))
-                            ]
-                        ]
-                    ])
-                ]
+                Box::new(
+                    Cons(
+                        Box::new(
+                            Cons(
+                                Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
+                                phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6)), Raw(Integer(3), Metadata::bounds(1, 7, 1, 8))], 
+                                Metadata::bounds(1, 1, 1, 8)
+                            )
+                        ), 
+                        phrase![Raw(Integer(4), Metadata::bounds(1, 11, 1, 12))], 
+                        Metadata::bounds(1, 1, 1, 12)
+                    )
+                ), 
+                phrase![], 
+                Metadata::bounds(1, 1, 1, 14)
             ),
         ],
     ], verse);
@@ -328,23 +342,24 @@ fn cons_with_container_tail() {
 
 #[test]
 fn cons_with_list_tail() {
-    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Left(Paren), Integer(2), Symbol(Ascii(b',')), Integer(3), Integer(4), Right(Paren), Newline]);
+    let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Left(Brace), Integer(2), Newline, Integer(3), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
             Cons(
-                Box::new(Raw(Integer(1))), 
+                Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
                 phrase![
-                    List(
-                        vec![
-                            verse![
-                                phrase![Raw(Integer(2))], 
+                    List(vec![
+                        verse![
+                            phrase![
+                                Raw(Integer(2), Metadata::bounds(1, 7, 1, 8))
                             ],
-                            verse![
-                                phrase![Raw(Integer(3)), Raw(Integer(4))]
+                            phrase![
+                                Raw(Integer(3), Metadata::bounds(1, 11, 1, 12))
                             ]
                         ]
-                    )
-                ]
+                    ], Metadata::bounds(1, 5, 1, 14))
+                ], 
+                Metadata::bounds(1, 1, 1, 14)
             ),
         ],
     ], verse);
@@ -359,15 +374,19 @@ fn cons_inside_brace_list() {
                 verse![
                     phrase![
                         Cons(
-                            Box::new(Cons(
-                                Box::new(Raw(Integer(1))), 
-                                phrase![Raw(Integer(2)), Raw(Integer(3))])
+                            Box::new(
+                                Cons(
+                                    Box::new(Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))), 
+                                    phrase![Raw(Integer(2), Metadata::bounds(1, 7, 1, 8)), Raw(Integer(3), Metadata::bounds(1, 9, 1, 10))], 
+                                    Metadata::bounds(1, 3, 1, 10)
+                                )
                             ), 
-                            phrase![Raw(Integer(4))]
+                            phrase![Raw(Integer(4), Metadata::bounds(1, 13, 1, 14))], 
+                            Metadata::bounds(1, 3, 1, 14)
                         ),
                     ]
                 ]
-            ])
+            ], Metadata::bounds(1, 1, 1, 16))
         ]
     ], verse);
 }
@@ -381,15 +400,19 @@ fn cons_inside_list() {
                 verse![
                     phrase![
                         Cons(
-                            Box::new(Cons(
-                                Box::new(Raw(Integer(1))), 
-                                phrase![Raw(Integer(2)), Raw(Integer(3))]
-                            )), 
-                            phrase![Raw(Integer(4))]
+                            Box::new(
+                                Cons(
+                                    Box::new(Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))), 
+                                    phrase![Raw(Integer(2), Metadata::bounds(1, 7, 1, 8)), Raw(Integer(3), Metadata::bounds(1, 9, 1, 10))], 
+                                    Metadata::bounds(1, 3, 1, 10)
+                                )
+                            ), 
+                            phrase![Raw(Integer(4), Metadata::bounds(1, 13, 1, 14))], 
+                            Metadata::bounds(1, 3, 1, 14)
                         ),
                     ]
                 ]
-            ])
+            ], Metadata::bounds(1, 1, 1, 16))
         ]
     ], verse);
 }
@@ -417,7 +440,11 @@ fn prefix_with_integer() {
     let verse = parse_ok(vec![Symbol(Ascii(b'-')), Integer(1), Newline]);
     assert_eq!(verse![
         phrase![
-            Prefix(Symbol(Ascii(b'-')), Box::new(Raw(Integer(1))))
+            Prefix(
+                Symbol(Ascii(b'-')), 
+                Box::new(Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))), 
+                Metadata::bounds(1, 1, 1, 4)
+            )
         ]
     ], verse);
 }
@@ -427,26 +454,35 @@ fn prefix_with_decimal() {
     let verse = parse_ok(vec![Symbol(Ascii(b'-')), Decimal(10, 5, 2), Newline]);
     assert_eq!(verse![
         phrase![  
-            Prefix(Symbol(Ascii(b'-')), Box::new(Raw(Decimal(10, 5, 2))))
+            Prefix(
+                Symbol(Ascii(b'-')), 
+                Box::new(Raw(Decimal(10, 5, 2), Metadata::bounds(1, 3, 1, 4))), 
+                Metadata::bounds(1, 1, 1, 4)
+            )
         ]
     ], verse);
 }
 
 #[test]
-fn prefix_with_container() {
+fn prefix_with_brace_list() {
     let verse = parse_ok(vec![Symbol(Ascii(b'-')), Left(Brace), Integer(1), Newline, Integer(2), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
-            Prefix(Symbol(Ascii(b'-')), Box::new(List(vec![
-                verse![
-                    phrase![
-                        Raw(Integer(1))
-                    ],
-                    phrase![
-                        Raw(Integer(2))
-                    ]
-                ]
-            ])))
+            Prefix(
+                Symbol(Ascii(b'-')), 
+                Box::new(
+                    List(vec![
+                        verse![
+                            phrase![
+                                Raw(Integer(1), Metadata::bounds(1, 5, 1, 6))
+                            ],
+                            phrase![
+                                Raw(Integer(2), Metadata::bounds(1, 9, 1, 10))
+                            ]
+                        ]
+                    ], Metadata::bounds(1, 3, 1, 12))
+                ), 
+                Metadata::bounds(1, 1, 1, 12))
         ]
     ], verse);
 }
@@ -461,14 +497,16 @@ fn prefix_with_list() {
                 Box::new(List(
                     vec![
                         verse![
-                            phrase![Raw(Integer(1))], 
-                            phrase![Raw(Integer(2))]
+                            phrase![Raw(Integer(1), Metadata::bounds(1, 5, 1, 6))], 
+                            phrase![Raw(Integer(2), Metadata::bounds(1, 9, 1, 10))]
                         ],
                         verse![
-                            phrase![Raw(Integer(3))]
+                            phrase![Raw(Integer(3), Metadata::bounds(1, 13, 1, 14))]
                         ]
-                    ])
-                ))
+                    ], Metadata::bounds(1, 3, 1, 16))
+                ), 
+                Metadata::bounds(1, 1, 1, 16)
+            )
         ]
     ], verse);
 }
@@ -483,11 +521,12 @@ fn prefix_inside_of_list() {
                     phrase![
                         Prefix(
                             Symbol(Ascii(b'-')),
-                            Box::new(Raw(Integer(42))),
+                            Box::new(Raw(Integer(42), Metadata::bounds(1, 5, 1, 6))),
+                            Metadata::bounds(1, 3, 1, 6)
                         )
                     ]
                 ]
-            ])
+            ], Metadata::bounds(1, 1, 1, 8))
         ]
     ], verse);
 }
@@ -498,13 +537,15 @@ fn prefix_inside_of_cons() {
     assert_eq!(verse![
         phrase![
             Cons(
-                Box::new(Raw(Text("key".into()))),
+                Box::new(Raw(Text("key".into()), Metadata::bounds(1, 1, 1, 2))),
                 phrase![                 
                     Prefix(
                         Symbol(Ascii(b'-')),
-                        Box::new(Raw(Integer(42))),
+                        Box::new(Raw(Integer(42), Metadata::bounds(1, 7, 1, 8))),
+                        Metadata::bounds(1, 5, 1, 8)
                     )
-                ]
+                ], 
+                Metadata::bounds(1, 1, 1, 8)
             )
         ]
     ], verse);

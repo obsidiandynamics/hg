@@ -21,27 +21,30 @@ impl Display for Location {
     }
 }
 
-#[derive(Debug, PartialEq)]
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Metadata {
-    pub start: Location,
-    pub end: Location
+    pub start: Option<Location>,
+    pub end: Option<Location>
 }
 
 impl Metadata {
+    pub const fn unspecified() -> Self {
+        Self { start: None, end: None }
+    }
+    
     #[cfg(test)]
-    pub fn new(start_line: u32, start_column: u32, end_line: u32, end_column: u32) -> Self {
+    pub fn bounds(start_line: u32, start_column: u32, end_line: u32, end_column: u32) -> Self {
         debug_assert!(start_line <= end_line);
         debug_assert!(start_line == end_line && start_column <= end_column || start_line + 1 == end_line);
         Self {
-            start: Location {
+            start: Some(Location {
                 line: start_line,
                 column: start_column,
-            },
-            end: Location {
+            }),
+            end: Some(Location {
                 line: end_line,
                 column: end_column,
-            },
+            }),
         }
     }
 }
