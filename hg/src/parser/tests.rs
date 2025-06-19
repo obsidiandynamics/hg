@@ -5,7 +5,7 @@ use crate::token::Token::{Decimal, ExtendedSymbol, Ident, Integer, Left, Newline
 use crate::token::{Ascii, AsciiSlice, Token};
 use crate::tree::Node::{Cons, List, Prefix, Raw};
 use crate::tree::Verse;
-use crate::{lexer, phrase, verse};
+use crate::{lexer, phrase, token, verse};
 use std::iter::{Enumerate, Map};
 use std::vec::IntoIter;
 
@@ -453,12 +453,12 @@ fn prefix_with_integer() {
 
 #[test]
 fn prefix_with_decimal() {
-    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Decimal(10, 5, 2), Newline]);
+    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Decimal(token::Decimal(10, 5, 2)), Newline]);
     assert_eq!(verse![
         phrase![  
             Prefix(
                 Symbol(Ascii(b'-')), 
-                Box::new(Raw(Decimal(10, 5, 2), Metadata::bounds(1, 3, 1, 4))), 
+                Box::new(Raw(Decimal(token::Decimal(10, 5, 2)), Metadata::bounds(1, 3, 1, 4))), 
                 Metadata::bounds(1, 1, 1, 4)
             )
         ]

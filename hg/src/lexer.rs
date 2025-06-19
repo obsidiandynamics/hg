@@ -8,6 +8,7 @@ use crate::graphemes::Grapheme;
 use crate::metadata::{Location, Metadata};
 use crate::newline_terminated_bytes::NewlineTerminatedBytes;
 use crate::symbols::{is_symbol, SymbolString, SymbolTable};
+use crate::token;
 
 #[derive(Debug, thiserror::Error)]
 #[error("codepoint out of range")]
@@ -246,7 +247,8 @@ impl<'a, 's> Tokeniser<'a, 's> {
         let str = self.token.as_str(self.bytes);
         match u128::from_str(str) {
             Ok(fractional) => {
-                let token = Token::Decimal(whole, fractional, self.token.len().try_into().expect("fractional part is too long"));
+                let scale = self.token.len().try_into().expect("fractional part is too long");
+                let token = Token::Decimal(token::Decimal(whole, fractional, scale));
                 self.token.clear();
                 self.mode = Mode::Whitespace;
                 self.location.column -= 1;

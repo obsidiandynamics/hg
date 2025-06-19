@@ -6,7 +6,7 @@ use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::token::{Ascii, Token};
 use hg::tree::Node::{Cons, List, Prefix, Raw};
 use hg::tree::{Node, Verse};
-use hg::{lexer, phrase, verse};
+use hg::{lexer, phrase, token, verse};
 use std::iter::Map;
 use std::vec::IntoIter;
 
@@ -31,7 +31,7 @@ fn integer(value: u128) -> Node<'static> {
 }
 
 fn decimal(whole: u128, fractional: u128, scale: u8) -> Node<'static> {
-    Raw(Decimal(whole, fractional, scale), Metadata::unspecified())
+    Raw(Decimal(token::Decimal(whole, fractional, scale)), Metadata::unspecified())
 }
 
 fn boolean(value: bool) -> Node<'static> {

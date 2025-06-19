@@ -69,7 +69,7 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
             Token::Symbol(Ascii(b',')) | Token::Right(_) => {
                 return Err(Error::UnexpectedToken(token))
             },
-            Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
+            Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
                 phrase.push(Node::Raw(token, metadata));
             }
         }
@@ -135,7 +135,7 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                         Err(Error::UnexpectedToken(Token::Right(right_delimiter)))
                     }
                 },
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_)=> {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_)=> {
                     phrase.push(Node::Raw(token, metadata));
                 }
             }
@@ -190,7 +190,7 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
                         Err(Error::EmptyConsSegment)
                     }
                 },
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
                     tail.push(Node::Raw(token, metadata))
                 }
             }
@@ -214,7 +214,7 @@ fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, sym
                 Token::Newline | Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Symbol(Ascii(b':')) | Token::Symbol(Ascii(b'-')) => {
                     Err(Error::UnexpectedToken(token))
                 },
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_, _, _) | Token::Boolean(_) | Token::Ident(_) |  Token::Symbol(_) | Token::ExtendedSymbol(_) => {
+                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_) | Token::Boolean(_) | Token::Ident(_) |  Token::Symbol(_) | Token::ExtendedSymbol(_) => {
                     let end = metadata.end.clone();
                     Ok(Node::Prefix(symbol, Box::new(Node::Raw(token, metadata)), Metadata { start, end }))
                 }

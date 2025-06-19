@@ -10,6 +10,7 @@ use crate::token::{Ascii, AsciiSlice, ListDelimiter, Token};
 use std::borrow::Cow;
 use ListDelimiter::Paren;
 use Token::{Integer, Newline, Text};
+use crate::token;
 
 fn tok_ok(str: &str) -> (Vec<Token>, Vec<Metadata>) {
     let tok_with_metadata = Tokeniser::new(str, SymbolTable::default())
@@ -750,7 +751,7 @@ fn integer_invalid_due_to_utf8_err() {
 fn decimal_newline_terminated() {
     let str = r#"1234567890.0123456789"#;
     let (tokens, metadata) = tok_ok(str);
-    assert_eq!(vec![Decimal(1234567890, 123456789, 10), Newline], tokens);
+    assert_eq!(vec![Decimal(token::Decimal(1234567890, 123456789, 10)), Newline], tokens);
     assert_eq!(
         vec![
             Metadata::bounds(1, 1, 1, 21),
@@ -764,7 +765,7 @@ fn decimal_newline_terminated() {
 fn decimal_small() {
     let str = r#"1234567890.0001"#;
     let (tokens, metadata) = tok_ok(str);
-    assert_eq!(vec![Decimal(1234567890, 1, 4), Newline], tokens);
+    assert_eq!(vec![Decimal(token::Decimal(1234567890, 1, 4)), Newline], tokens);
     assert_eq!(
         vec![
             Metadata::bounds(1, 1, 1, 15),
@@ -778,7 +779,7 @@ fn decimal_small() {
 fn decimal_implied_leading_zero() {
     let str = r#".123"#;
     let (tokens, metadata) = tok_ok(str);
-    assert_eq!(vec![Decimal(0, 123, 3), Newline], tokens);
+    assert_eq!(vec![Decimal(token::Decimal(0, 123, 3)), Newline], tokens);
     assert_eq!(
         vec![
             Metadata::bounds(1, 1, 1, 4),
@@ -793,7 +794,7 @@ fn symbol_and_decimal() {
     let str = r#". .123"#;
     let (tokens, metadata) = tok_ok(str);
     assert_eq!(
-        vec![Symbol(Ascii(b'.')), Decimal(0, 123, 3), Newline],
+        vec![Symbol(Ascii(b'.')), Decimal(token::Decimal(0, 123, 3)), Newline],
         tokens
     );
     assert_eq!(
@@ -812,7 +813,7 @@ fn decimal_colon_terminated() {
     let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
-            Decimal(1234567890, 123456789, 10),
+            Decimal(token::Decimal(1234567890, 123456789, 10)),
             Symbol(Ascii(b':')),
             Newline
         ],
@@ -834,9 +835,9 @@ fn decimal_comma_terminated() {
     let (tokens, metadata) = tok_ok(str);
     assert_eq!(
         vec![
-            Decimal(1234567890, 123456789, 10),
+            Decimal(token::Decimal(1234567890, 123456789, 10)),
             Symbol(Ascii(b',')),
-            Decimal(12, 34, 2),
+            Decimal(token::Decimal(12, 34, 2)),
             Newline
         ],
         tokens
