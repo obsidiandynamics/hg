@@ -3,7 +3,7 @@ use hg::tree::{Node, Verse};
 use crate::ast::DynEval;
 
 #[derive(Debug, thiserror::Error)]
-enum Error {
+pub enum Error {
     #[error("unexpected node at {0}")]
     UnexpectedNode(Metadata)
 }
