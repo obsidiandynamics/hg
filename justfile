@@ -1,6 +1,10 @@
 _help:
     @just --list
 
+# run a specific example
+example name:
+    cargo run --example {{name}}
+
 # run Criterion bechmarks
 bench:
     bash -c 'type cargo-criterion >/dev/null 2>&1 || cargo install cargo-criterion'

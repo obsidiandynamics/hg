@@ -27,6 +27,29 @@ pub struct Metadata {
     pub end: Option<Location>
 }
 
+impl Display for Metadata {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match (&self.start, &self.end) {
+            (None, None) => {
+                write!(f, "unspecified location")
+            }
+            (Some(location), None) => {
+                write!(f, "{location}")
+            }
+            (None, Some(location)) => {
+                write!(f, "{location}")
+            }
+            (Some(start), Some(end)) => {
+                if start.line == end.line {
+                    write!(f, "line {}, columns {} to {}", start.line, start.column, end.column)
+                } else {
+                    write!(f, "{start} to {end}")
+                }
+            }
+        }
+    }
+}
+
 impl Metadata {
     pub const fn unspecified() -> Self {
         Self { start: None, end: None }
@@ -46,5 +69,15 @@ impl Metadata {
                 column: end_column,
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::metadata::Location;
+
+    #[test]
+    fn location_display() {
+        assert_eq!("line 2, column 3", Location { line: 2, column: 3}.to_string());
     }
 }

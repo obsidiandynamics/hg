@@ -189,6 +189,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hg-examples"
+version = "0.3.0"
+dependencies = [
+ "hg",
+ "thiserror",
+]
+
+[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

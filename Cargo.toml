@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "hg",
+    "hg-examples"
 ]
 resolver = "3"
 

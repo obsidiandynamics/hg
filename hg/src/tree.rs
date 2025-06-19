@@ -1,3 +1,5 @@
+use std::iter::FlatMap;
+use std::vec::IntoIter;
 use crate::metadata::Metadata;
 use crate::token::Token;
 
@@ -32,6 +34,13 @@ impl<'a> From<Phrase<'a>> for Vec<Node<'a>> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Verse<'a>(pub Vec<Phrase<'a>>);
+
+impl<'a> Verse<'a> {
+    #[allow(clippy::type_complexity)]
+    pub fn flatten(self) -> FlatMap<IntoIter<Phrase<'a>>, IntoIter<Node<'a>>, fn(Phrase<'a>) -> IntoIter<Node<'a>>> {
+        self.0.into_iter().flat_map(|phrase| phrase.0.into_iter())
+    }
+}
 
 impl<'a> From<Verse<'a>> for Vec<Phrase<'a>> {
     fn from(verse: Verse<'a>) -> Self {
