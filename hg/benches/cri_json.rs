@@ -6,7 +6,7 @@ use hg::symbols::SymbolTable;
 
 fn criterion_benchmark(c: &mut Criterion) {
     fn bench_file(c: &mut Criterion, name: &str) {
-        let data = fs::read_to_string(format!("benches/data/{name}.json")).unwrap();
+        let data = fs::read_to_string(format!("hg/benches/data/{name}.json")).unwrap();
         let data = data.as_str();
 
         c.bench_function(format!("cri_json_lexer-{name}").as_str(), |b| {
