@@ -6,30 +6,30 @@ pub trait Eval: Debug {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Sum(Sum),
-    Product(Product),
+    Add(Add),
+    Mult(Mult),
     Number(Number)
 }
 
 impl Eval for Expression {
     fn eval(&self) -> f64 {
         match self {
-            Expression::Sum(sum) => sum.eval(),
-            Expression::Product(product) => product.eval(),
+            Expression::Add(add) => add.eval(),
+            Expression::Mult(mult) => mult.eval(),
             Expression::Number(number) => number.eval()
         }
     }
 }
 
-impl From<Sum> for Expression {
-    fn from(value: Sum) -> Self {
-        Expression::Sum(value)
+impl From<Add> for Expression {
+    fn from(value: Add) -> Self {
+        Expression::Add(value)
     }
 }
 
-impl From<Product> for Expression {
-    fn from(value: Product) -> Self {
-        Expression::Product(value)
+impl From<Mult> for Expression {
+    fn from(value: Mult) -> Self {
+        Expression::Mult(value)
     }
 }
 
@@ -40,18 +40,18 @@ impl From<Number> for Expression {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Sum(pub Box<Expression>, pub Box<Expression>);
+pub struct Add(pub Box<Expression>, pub Box<Expression>);
 
-impl Eval for Sum {
+impl Eval for Add {
     fn eval(&self) -> f64 {
         &self.0.eval() + &self.1.eval()
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Product(pub Box<Expression>, pub Box<Expression>);
+pub struct Mult(pub Box<Expression>, pub Box<Expression>);
 
-impl Eval for Product {
+impl Eval for Mult {
     fn eval(&self) -> f64 {
         &self.0.eval() * &self.1.eval()
     }

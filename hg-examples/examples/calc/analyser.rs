@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Number, Product};
+use crate::ast::{Expression, Number, Mult};
 use hg::metadata::Metadata;
 use hg::token::{Ascii, Token};
 use hg::tree::{Node, Verse};
@@ -88,10 +88,10 @@ fn process_elements<'a, I: Iterator<Item = Node<'a>>>(
 }
 
 fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<Expression, Error> {
-    let sans_products = fold_products(iter)?;
+    let sans_mult = fold_mult(iter)?;
 
     // should be no symbols remaining, just one top-level expression
-    let mut iter = sans_products.into_iter();
+    let mut iter = sans_mult.into_iter();
     match iter.next() {
         None => Err(Error::NoExpression),
         Some(Element::Expression(eval, _)) => match iter.next() {
@@ -105,7 +105,7 @@ fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<
     }
 }
 
-fn fold_products<I: Iterator<Item = Result<Element, Error>>>(
+fn fold_mult<I: Iterator<Item = Result<Element, Error>>>(
     iter: I,
 ) -> Result<Vec<Element>, Error> {
     let mut refined = vec![];
@@ -121,9 +121,9 @@ fn fold_products<I: Iterator<Item = Result<Element, Error>>>(
                 Some(Element::Operator(Ascii(b'*'), _)) => {
                     let before_last = take_last(&mut refined).unwrap();
                     let (lhs_eval, lhs_metadata) = before_last.into_expression().unwrap();
-                    let product = Product(Box::new(lhs_eval), Box::new(eval));
+                    let mult = Mult(Box::new(lhs_eval), Box::new(eval));
                     refined.push(Element::Expression(
-                        Expression::from(product),
+                        Expression::from(mult),
                         Metadata {
                             start: lhs_metadata.start,
                             end: metadata.end,
