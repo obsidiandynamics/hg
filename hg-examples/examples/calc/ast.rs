@@ -16,6 +16,15 @@ impl Eval for Sum {
 }
 
 #[derive(Debug)]
+pub struct Product(pub Vec<DynEval>);
+
+impl Eval for Product {
+    fn eval(&self) -> f64 {
+        self.0.iter().map(|eval| eval.eval()).product()
+    }
+}
+
+#[derive(Debug)]
 pub enum Number {
     Integer(i64),
     Float(f64)

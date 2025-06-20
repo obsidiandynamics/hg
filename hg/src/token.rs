@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use crate::types::unqualified_type_name;
 
 #[derive(PartialEq, Eq, Clone)]
@@ -8,6 +8,12 @@ pub struct Ascii(pub u8);
 impl Debug for Ascii {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(b'{}')", unqualified_type_name::<Self>(), self.0 as char)
+    }
+}
+
+impl Display for Ascii {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0 as char)
     }
 }
 
@@ -66,9 +72,15 @@ mod tests {
     use crate::token::{Ascii, Decimal};
 
     #[test]
-    fn byte_debug() {
-        let byte = Ascii(b'a');
-        assert_eq!("Ascii(b'a')", format!("{byte:?}"));
+    fn ascii_debug() {
+        let ascii = Ascii(b'a');
+        assert_eq!("Ascii(b'a')", format!("{ascii:?}"));
+    }
+    
+    #[test]
+    fn ascii_display() {
+        let ascii = Ascii(b'a');
+        assert_eq!("a", format!("{ascii}"));
     }
 
     #[test]
