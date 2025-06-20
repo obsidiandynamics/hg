@@ -5,42 +5,42 @@ pub trait Eval: Debug {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum EvalKind {
+pub enum Expression {
     Sum(Sum),
     Product(Product),
     Number(Number)
 }
 
-impl Eval for EvalKind {
+impl Eval for Expression {
     fn eval(&self) -> f64 {
         match self {
-            EvalKind::Sum(sum) => sum.eval(),
-            EvalKind::Product(product) => product.eval(),
-            EvalKind::Number(number) => number.eval()
+            Expression::Sum(sum) => sum.eval(),
+            Expression::Product(product) => product.eval(),
+            Expression::Number(number) => number.eval()
         }
     }
 }
 
-impl From<Sum> for EvalKind {
+impl From<Sum> for Expression {
     fn from(value: Sum) -> Self {
-        EvalKind::Sum(value)
+        Expression::Sum(value)
     }
 }
 
-impl From<Product> for EvalKind {
+impl From<Product> for Expression {
     fn from(value: Product) -> Self {
-        EvalKind::Product(value)
+        Expression::Product(value)
     }
 }
 
-impl From<Number> for EvalKind {
+impl From<Number> for Expression {
     fn from(value: Number) -> Self {
-        EvalKind::Number(value)
+        Expression::Number(value)
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Sum(pub Box<EvalKind>, pub Box<EvalKind>);
+pub struct Sum(pub Box<Expression>, pub Box<Expression>);
 
 impl Eval for Sum {
     fn eval(&self) -> f64 {
@@ -49,7 +49,7 @@ impl Eval for Sum {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Product(pub Box<EvalKind>, pub Box<EvalKind>);
+pub struct Product(pub Box<Expression>, pub Box<Expression>);
 
 impl Eval for Product {
     fn eval(&self) -> f64 {
