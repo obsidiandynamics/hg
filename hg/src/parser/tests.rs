@@ -3,7 +3,7 @@ use crate::parser::{parse, Error};
 use crate::token::ListDelimiter::{Brace, Paren};
 use crate::token::Token::{Decimal, ExtendedSymbol, Ident, Integer, Left, Newline, Right, Symbol, Text};
 use crate::token::{Ascii, AsciiSlice, Token};
-use crate::tree::Node::{Cons, List, Prefix, Raw};
+use crate::tree::Node::{Cons, List, Raw};
 use crate::tree::Verse;
 use crate::{lexer, phrase, token, verse};
 use std::iter::{Enumerate, Map};
@@ -438,129 +438,23 @@ fn cons_unterminated_err() {
 }
 
 #[test]
-fn prefix_with_integer() {
+fn negative_integer() {
     let verse = parse_ok(vec![Symbol(Ascii(b'-')), Integer(1), Newline]);
     assert_eq!(verse![
         phrase![
-            Prefix(
-                Symbol(Ascii(b'-')), 
-                Box::new(Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))), 
-                Metadata::bounds(1, 1, 1, 4)
-            )
+            Raw(Symbol(Ascii(b'-')), Metadata::bounds(1, 1, 1, 2)), 
+            Raw(Integer(1), Metadata::bounds(1, 3, 1, 4)), 
         ]
     ], verse);
 }
 
 #[test]
-fn prefix_with_decimal() {
+fn negative_decimal() {
     let verse = parse_ok(vec![Symbol(Ascii(b'-')), Decimal(token::Decimal(10, 5, 2)), Newline]);
     assert_eq!(verse![
         phrase![  
-            Prefix(
-                Symbol(Ascii(b'-')), 
-                Box::new(Raw(Decimal(token::Decimal(10, 5, 2)), Metadata::bounds(1, 3, 1, 4))), 
-                Metadata::bounds(1, 1, 1, 4)
-            )
+            Raw(Symbol(Ascii(b'-')), Metadata::bounds(1, 1, 1, 2)), 
+            Raw(Decimal(token::Decimal(10, 5, 2)), Metadata::bounds(1, 3, 1, 4)), 
         ]
     ], verse);
-}
-
-#[test]
-fn prefix_with_brace_list() {
-    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Left(Brace), Integer(1), Newline, Integer(2), Right(Brace), Newline]);
-    assert_eq!(verse![
-        phrase![
-            Prefix(
-                Symbol(Ascii(b'-')), 
-                Box::new(
-                    List(vec![
-                        verse![
-                            phrase![
-                                Raw(Integer(1), Metadata::bounds(1, 5, 1, 6))
-                            ],
-                            phrase![
-                                Raw(Integer(2), Metadata::bounds(1, 9, 1, 10))
-                            ]
-                        ]
-                    ], Metadata::bounds(1, 3, 1, 12))
-                ), 
-                Metadata::bounds(1, 1, 1, 12))
-        ]
-    ], verse);
-}
-
-#[test]
-fn prefix_with_list() {
-    let verse = parse_ok(vec![Symbol(Ascii(b'-')), Left(Paren), Integer(1), Newline, Integer(2), Symbol(Ascii(b',')), Integer(3), Right(Paren), Newline]);
-    assert_eq!(verse![
-        phrase![
-            Prefix(
-                Symbol(Ascii(b'-')), 
-                Box::new(List(
-                    vec![
-                        verse![
-                            phrase![Raw(Integer(1), Metadata::bounds(1, 5, 1, 6))], 
-                            phrase![Raw(Integer(2), Metadata::bounds(1, 9, 1, 10))]
-                        ],
-                        verse![
-                            phrase![Raw(Integer(3), Metadata::bounds(1, 13, 1, 14))]
-                        ]
-                    ], Metadata::bounds(1, 3, 1, 16))
-                ), 
-                Metadata::bounds(1, 1, 1, 16)
-            )
-        ]
-    ], verse);
-}
-
-#[test]
-fn prefix_inside_of_list() {
-    let verse = parse_ok(vec![Left(Paren), Symbol(Ascii(b'-')), Integer(42), Right(Paren), Newline]);
-    assert_eq!(verse![
-        phrase![
-            List(vec![
-                verse![
-                    phrase![
-                        Prefix(
-                            Symbol(Ascii(b'-')),
-                            Box::new(Raw(Integer(42), Metadata::bounds(1, 5, 1, 6))),
-                            Metadata::bounds(1, 3, 1, 6)
-                        )
-                    ]
-                ]
-            ], Metadata::bounds(1, 1, 1, 8))
-        ]
-    ], verse);
-}
-
-#[test]
-fn prefix_inside_of_cons() {
-    let verse = parse_ok(vec![Text("key".into()), Symbol(Ascii(b':')), Symbol(Ascii(b'-')), Integer(42), Newline]);
-    assert_eq!(verse![
-        phrase![
-            Cons(
-                Box::new(Raw(Text("key".into()), Metadata::bounds(1, 1, 1, 2))),
-                phrase![                 
-                    Prefix(
-                        Symbol(Ascii(b'-')),
-                        Box::new(Raw(Integer(42), Metadata::bounds(1, 7, 1, 8))),
-                        Metadata::bounds(1, 5, 1, 8)
-                    )
-                ], 
-                Metadata::bounds(1, 1, 1, 8)
-            )
-        ]
-    ], verse);
-}
-
-#[test]
-fn prefix_unterminated_err() {
-    let err = parse_err(vec![Symbol(Ascii(b'-'))]);
-    assert_eq!("unterminated prefix", err.to_string());
-}
-
-#[test]
-fn prefix_unexpected_token_err() {
-    let err = parse_err(vec![Symbol(Ascii(b'-')), Symbol(Ascii(b'-'))]);
-    assert_eq!("unexpected token Symbol(Ascii(b'-'))", err.to_string());
 }

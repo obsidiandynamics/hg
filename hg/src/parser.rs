@@ -62,10 +62,6 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
                 let child = parse_cons(head, metadata.end, &mut fragments)?;
                 phrase.push(child);
             }
-            Token::Symbol(Ascii(b'-')) => {
-                let child = parse_prefix(metadata.start, token, &mut fragments)?;
-                phrase.push(child);
-            }
             Token::Symbol(Ascii(b',')) | Token::Right(_) => {
                 return Err(Error::UnexpectedToken(token))
             },
@@ -99,10 +95,6 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                 }
                 Token::Left(delimiter) => {
                     let child = parse_list(metadata.start, delimiter, fragments)?;
-                    phrase.push(child);
-                }
-                Token::Symbol(Ascii(b'-')) => {
-                    let child = parse_prefix(metadata.start, token, fragments)?;
                     phrase.push(child);
                 }
                 Token::Symbol(Ascii(b',')) => {
@@ -165,10 +157,6 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
                     let child = parse_list(metadata.start, delimiter, fragments)?;
                     tail.push(child);
                 }
-                Token::Symbol(Ascii(b'-')) => {
-                    let child = parse_prefix(metadata.start, token, fragments)?;
-                    tail.push(child);
-                }
                 Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Newline => {
                     fragments.stash(Ok((token, metadata))); // restore token for the parent parser
                     let start = head.metadata().start.clone();
@@ -197,32 +185,6 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
         } else {
             return Err(Error::UnterminatedCons)
         }
-    }
-}
-
-#[inline]
-fn parse_prefix<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, symbol: Token<'a>, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
-    match fragments.next() {
-        Some(fragment) => {
-            let (token, metadata) = fragment?;
-            match token {
-                Token::Left(delimiter) => {
-                    let child = parse_list(metadata.start, delimiter, fragments)?;
-                    let end = child.metadata().end.clone();
-                    Ok(Node::Prefix(symbol, Box::new(child), Metadata { start, end }))
-                }
-                Token::Newline | Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Symbol(Ascii(b':')) | Token::Symbol(Ascii(b'-')) => {
-                    Err(Error::UnexpectedToken(token))
-                },
-                Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_) | Token::Boolean(_) | Token::Ident(_) |  Token::Symbol(_) | Token::ExtendedSymbol(_) => {
-                    let end = metadata.end.clone();
-                    Ok(Node::Prefix(symbol, Box::new(Node::Raw(token, metadata)), Metadata { start, end }))
-                }
-            }
-        }
-        None => {
-            Err(Error::UnterminatedPrefix)
-        },
     }
 }
 

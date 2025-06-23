@@ -4,8 +4,8 @@ use hg::parser::parse;
 use hg::symbols::SymbolTable;
 use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::token::{Ascii, Token};
-use hg::tree::Node::{Cons, List, Prefix, Raw};
-use hg::tree::{Node, Verse};
+use hg::tree::Node::{Cons, List, Raw};
+use hg::tree::{Node, Phrase, Verse};
 use hg::{lexer, phrase, token, verse};
 use std::iter::Map;
 use std::vec::IntoIter;
@@ -22,51 +22,57 @@ fn parse_ok(tokens: Vec<Token>) -> Verse {
     parse(without_metadata(tokens)).unwrap()
 }
 
-fn string(value: &str) -> Node {
-    Raw(Text(value.into()), Metadata::unspecified())
+fn string(value: &str) -> Vec<Node> {
+    vec![Raw(Text(value.into()), Metadata::unspecified())]
 }
 
-fn integer(value: u128) -> Node<'static> {
-    Raw(Integer(value), Metadata::unspecified())
+fn integer(value: u128) -> Vec<Node<'static>> {
+    vec![Raw(Integer(value), Metadata::unspecified())]
 }
 
-fn decimal(whole: u128, fractional: u128, scale: u8) -> Node<'static> {
-    Raw(Decimal(token::Decimal(whole, fractional, scale)), Metadata::unspecified())
+fn decimal(whole: u128, fractional: u128, scale: u8) -> Vec<Node<'static>> {
+    vec![Raw(Decimal(token::Decimal(whole, fractional, scale)), Metadata::unspecified())]
 }
 
-fn boolean(value: bool) -> Node<'static> {
-    Raw(Boolean(value), Metadata::unspecified())
+fn boolean(value: bool) -> Vec<Node<'static>> {
+    vec![Raw(Boolean(value), Metadata::unspecified())]
 }
 
-fn null() -> Node<'static> {
-    Raw(Ident("null".into()), Metadata::unspecified())
+fn null() -> Vec<Node<'static>> {
+    vec![Raw(Ident("null".into()), Metadata::unspecified())]
 }
 
-fn negative(value: impl Into<Node<'static>>) -> Node<'static> {
-    Prefix(Symbol(Ascii(b'-')), Box::new(value.into()), Metadata::unspecified())
+fn negative(value: impl Into<Vec<Node<'static>>>) -> Vec<Node<'static>> {
+    let value = value.into();
+    let mut concat = Vec::with_capacity(value.len() + 1);
+    concat.push(Raw(Symbol(Ascii(b'-')), Metadata::unspecified()));
+    for node in value {
+        concat.push(node);
+    }
+    concat
 }
 
-fn key_value(key: &'static str, value: Node<'static>) -> Node<'static> {
-    Cons(
+fn key_value(key: &'static str, value: Vec<Node<'static>>) -> Vec<Node<'static>> {
+    vec![Cons(
         Box::new(Raw(Text(key.into()), Metadata::unspecified())),
-        phrase![value], 
+        Phrase(value), 
         Metadata::unspecified()
-    )
+    )]
 }
 
-struct ArrayBuilder(Vec<Node<'static>>);
+struct ArrayBuilder(Vec<Vec<Node<'static>>>);
 
 impl ArrayBuilder {
-    fn with(mut self, element: impl Into<Node<'static>>) -> Self {
+    fn with(mut self, element: impl Into<Vec<Node<'static>>>) -> Self {
         self.0.push(element.into());
         self
     }
 }
 
-impl From<ArrayBuilder> for Node<'static> {
+impl From<ArrayBuilder> for Vec<Node<'static>> {
     fn from(array_builder: ArrayBuilder) -> Self {
-        let verses = array_builder.0.into_iter().map(|element| verse![phrase![element]]).collect();
-        List(verses, Metadata::unspecified())
+        let verses = array_builder.0.into_iter().map(|element| verse![Phrase(element)]).collect();
+        vec![List(verses, Metadata::unspecified())]
     }
 }
 
@@ -74,7 +80,7 @@ fn array() -> ArrayBuilder {
     ArrayBuilder(vec![])
 }
 
-struct ObjectBuilder(Vec<(&'static str, Node<'static>)>);
+struct ObjectBuilder(Vec<(&'static str, Vec<Node<'static>>)>);
 
 impl ObjectBuilder {
     fn key(self, key: &'static str) -> ObjectKeyValueBuilder {
@@ -82,10 +88,10 @@ impl ObjectBuilder {
     }
 }
 
-impl From<ObjectBuilder> for Node<'static> {
+impl From<ObjectBuilder> for Vec<Node<'static>> {
     fn from(object_builder: ObjectBuilder) -> Self {
-        let verses = object_builder.0.into_iter().map(|(key, value)| verse![phrase![key_value(key, value)]]).collect();
-        List(verses, Metadata::unspecified())
+        let verses = object_builder.0.into_iter().map(|(key, value)| verse![Phrase(key_value(key, value))]).collect();
+        vec![List(verses, Metadata::unspecified())]
     }
 }
 
@@ -96,15 +102,15 @@ fn object() -> ObjectBuilder {
 struct ObjectKeyValueBuilder(ObjectBuilder, &'static str);
 
 impl ObjectKeyValueBuilder {
-    fn value(self, value: impl Into<Node<'static>>) -> ObjectBuilder {
+    fn value(self, value: impl Into<Vec<Node<'static>>>) -> ObjectBuilder {
         let (mut object_builder, key) = (self.0, self.1);
         object_builder.0.push((key, value.into()));
         object_builder
     }
 }
 
-fn root(node: impl Into<Node<'static>>) -> Verse<'static> {
-    verse![phrase![node.into()]]
+fn root(node: impl Into<Vec<Node<'static>>>) -> Verse<'static> {
+    verse![Phrase(node.into())]
 }
 
 #[test]

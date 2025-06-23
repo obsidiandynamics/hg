@@ -78,9 +78,6 @@ fn process_elements<'a, I: Iterator<Item = Node<'a>>>(
                 let folded_list = fold_elements(list_elements)?;
                 Element::Expression(folded_list, metadata)
             }
-            Node::Prefix(_, _, _) => {
-                todo!()
-            }
             other => Err(Error::UnexpectedNode(other.metadata().clone()))?,
         };
         Ok(element)

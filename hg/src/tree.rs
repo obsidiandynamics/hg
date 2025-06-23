@@ -6,7 +6,6 @@ pub enum Node<'a> {
     Raw(Token<'a>, Metadata),
     List(Vec<Verse<'a>>, Metadata),
     Cons(Box<Node<'a>>, Phrase<'a>, Metadata),
-    Prefix(Token<'a>, Box<Node<'a>>, Metadata)
 }
 
 impl Node<'_> {
@@ -16,7 +15,6 @@ impl Node<'_> {
             Node::Raw(_, metadata) => metadata,
             Node::List(_, metadata) => metadata,
             Node::Cons(_, _, metadata) => metadata,
-            Node::Prefix(_, _, metadata) => metadata,
         }
     }
 }
