@@ -1,4 +1,4 @@
-use crate::ast::{Add, Expression, Mult, Number, Sub};
+use crate::ast::{Add, Div, Expression, Mult, Number, Sub};
 use hg::metadata::Metadata;
 use hg::token::{Ascii, Token};
 use hg::tree::{Node, Verse};
@@ -94,6 +94,7 @@ fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<
         elements.push(element?);
     }
     let elements = fold_prefix_sub(elements)?;
+    let elements = fold_div(elements)?;
     let elements = fold_mult(elements)?;
     let elements = fold_infix_sub(elements)?;
     let elements = fold_add(elements)?;
@@ -115,6 +116,10 @@ fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<
 
 fn fold_prefix_sub<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
     fold_prefix(elements, |rhs| Expression::from(Sub(Box::new(Expression::from(Number::Integer(0))), rhs)), b'-')
+}
+
+fn fold_div<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
+    fold_infix(elements, |lhs, rhs| Expression::from(Div(lhs, rhs)), b'/')
 }
 
 fn fold_mult<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
@@ -139,7 +144,7 @@ fn fold_prefix<
 ) -> Result<Vec<Element>, Error> {
     let mut refined = vec![];
     for element in elements {
-        // println!("refined: {refined:#?}");
+        //println!("prefix refined: {refined:#?}");
         match element {
             Element::Expression(expr, metadata) => {
                 let last = take_last(&mut refined);
@@ -161,6 +166,7 @@ fn fold_prefix<
                                 }
                                 Some(Element::Expression(_, _)) => {
                                     refined.push(last);
+                                    refined.push(Element::Expression(expr, metadata));
                                 }
                             }
                         } else {
