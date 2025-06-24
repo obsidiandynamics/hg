@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Number, Mult};
+use crate::ast::{Add, Expression, Mult, Number};
 use hg::metadata::Metadata;
 use hg::token::{Ascii, Token};
 use hg::tree::{Node, Verse};
@@ -66,11 +66,12 @@ fn process_elements<'a, I: Iterator<Item = Node<'a>>>(
                 let (eval, metadata) = convert_integer(uint, metadata)?;
                 Element::Expression(eval, metadata)
             }
-            Node::Raw(Token::Decimal(decimal), metadata) => {
-                Element::Expression(Expression::from(Number::Float(f64::from(decimal))), metadata)
-            }
+            Node::Raw(Token::Decimal(decimal), metadata) => Element::Expression(
+                Expression::from(Number::Float(f64::from(decimal))),
+                metadata,
+            ),
             Node::Raw(Token::Symbol(Ascii(byte)), metadata) => match byte {
-                b'+' => Element::Operator(Ascii(byte), metadata),
+                b'+' | b'-' | b'*' | b'/' => Element::Operator(Ascii(byte), metadata),
                 _ => Err(Error::UnexpectedSymbol(Ascii(byte), metadata))?,
             },
             Node::List(verses, metadata) => {
@@ -85,10 +86,18 @@ fn process_elements<'a, I: Iterator<Item = Node<'a>>>(
 }
 
 fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<Expression, Error> {
-    let sans_mult = fold_mult(iter)?;
+    let mut elements = {
+        let (min_elements, _) = iter.size_hint();
+        Vec::with_capacity(min_elements)
+    };
+    for element in iter {
+        elements.push(element?);
+    }
+    let elements = fold_mult(elements)?;
+    let elements = fold_add(elements)?;
 
     // should be no symbols remaining, just one top-level expression
-    let mut iter = sans_mult.into_iter();
+    let mut iter = elements.into_iter();
     match iter.next() {
         None => Err(Error::NoExpression),
         Some(Element::Expression(eval, _)) => match iter.next() {
@@ -102,34 +111,87 @@ fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<
     }
 }
 
-fn fold_mult<I: Iterator<Item = Result<Element, Error>>>(
-    iter: I,
+fn fold_mult(elements: Vec<Element>) -> Result<Vec<Element>, Error> {
+    fold_infix(elements, |lhs, rhs| Expression::from(Mult(lhs, rhs)), b'*')
+    
+    // let mut refined = vec![];
+    // for result in iter {
+    //     println!("refined: {refined:#?}");
+    //     let element = result?;
+    //     match element {
+    //         Element::Expression(eval, metadata) => match take_last(&mut refined) {
+    //             None => {
+    //                 refined.push(Element::Expression(eval, metadata));
+    //             }
+    //             Some(Element::Expression(_, _)) => return Err(Error::StrayExpression(metadata)),
+    //             Some(Element::Operator(Ascii(b'*'), _)) => {
+    //                 let before_last = take_last(&mut refined).unwrap();
+    //                 let (lhs_eval, lhs_metadata) = before_last.into_expression().unwrap();
+    //                 let mult = Mult(Box::new(lhs_eval), Box::new(eval));
+    //                 refined.push(Element::Expression(
+    //                     Expression::from(mult),
+    //                     Metadata {
+    //                         start: lhs_metadata.start,
+    //                         end: metadata.end,
+    //                     },
+    //                 ));
+    //             }
+    //             Some(other @ Element::Operator(_, _)) => {
+    //                 refined.push(other);
+    //                 refined.push(Element::Expression(eval, metadata));
+    //             }
+    //         },
+    //         Element::Operator(ascii, metadata) => match take_last(&mut refined) {
+    //             None => return Err(Error::StrayInfixOperator(ascii, metadata)),
+    //             Some(last @ Element::Expression(_, _)) => {
+    //                 refined.push(last);
+    //                 refined.push(Element::Operator(ascii, metadata));
+    //             }
+    //             Some(Element::Operator(_, _)) => {
+    //                 return Err(Error::StrayInfixOperator(ascii, metadata));
+    //             }
+    //         },
+    //     }
+    // }
+    // Ok(refined)
+}
+
+fn fold_add(elements: Vec<Element>) -> Result<Vec<Element>, Error> {
+    fold_infix(elements, |lhs, rhs| Expression::from(Add(lhs, rhs)), b'+')
+}
+
+fn fold_infix<
+    C: Fn(Box<Expression>, Box<Expression>) -> Expression,
+>(
+    elements: Vec<Element>,
+    combiner: C,
+    operator: u8,
 ) -> Result<Vec<Element>, Error> {
     let mut refined = vec![];
-    for result in iter {
+    for element in elements {
         println!("refined: {refined:#?}");
-        let element = result?;
         match element {
-            Element::Expression(eval, metadata) => match take_last(&mut refined) {
+            Element::Expression(expr, metadata) => match take_last(&mut refined) {
                 None => {
-                    refined.push(Element::Expression(eval, metadata));
+                    refined.push(Element::Expression(expr, metadata));
                 }
                 Some(Element::Expression(_, _)) => return Err(Error::StrayExpression(metadata)),
-                Some(Element::Operator(Ascii(b'*'), _)) => {
-                    let before_last = take_last(&mut refined).unwrap();
-                    let (lhs_eval, lhs_metadata) = before_last.into_expression().unwrap();
-                    let mult = Mult(Box::new(lhs_eval), Box::new(eval));
-                    refined.push(Element::Expression(
-                        Expression::from(mult),
-                        Metadata {
-                            start: lhs_metadata.start,
-                            end: metadata.end,
-                        },
-                    ));
-                }
-                Some(other @ Element::Operator(_, _)) => {
-                    refined.push(other);
-                    refined.push(Element::Expression(eval, metadata));
+                Some(last @ Element::Operator(Ascii(symbol), _)) => {
+                    if symbol == operator {
+                        let before_last = take_last(&mut refined).unwrap();
+                        let (lhs_expr, lhs_metadata) = before_last.into_expression().unwrap();
+                        let combined = combiner(Box::new(lhs_expr), Box::new(expr));
+                        refined.push(Element::Expression(
+                            combined,
+                            Metadata {
+                                start: lhs_metadata.start,
+                                end: metadata.end,
+                            },
+                        ));
+                    } else {
+                        refined.push(last);
+                        refined.push(Element::Expression(expr, metadata));
+                    }
                 }
             },
             Element::Operator(ascii, metadata) => match take_last(&mut refined) {
