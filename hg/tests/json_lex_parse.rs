@@ -6,7 +6,7 @@ use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::token::{Ascii, Token};
 use hg::tree::Node::{Cons, List, Raw};
 use hg::tree::{Node, Phrase, Verse};
-use hg::{lexer, phrase, token, verse};
+use hg::{lexer, token, verse};
 use std::iter::Map;
 use std::vec::IntoIter;
 

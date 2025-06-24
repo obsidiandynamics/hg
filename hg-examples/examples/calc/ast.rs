@@ -7,6 +7,7 @@ pub trait Eval: Debug {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Add(Add),
+    Sub(Sub),
     Mult(Mult),
     Number(Number)
 }
@@ -15,6 +16,7 @@ impl Eval for Expression {
     fn eval(&self) -> f64 {
         match self {
             Expression::Add(add) => add.eval(),
+            Expression::Sub(sub) => sub.eval(),
             Expression::Mult(mult) => mult.eval(),
             Expression::Number(number) => number.eval()
         }
@@ -24,6 +26,12 @@ impl Eval for Expression {
 impl From<Add> for Expression {
     fn from(value: Add) -> Self {
         Expression::Add(value)
+    }
+}
+
+impl From<Sub> for Expression {
+    fn from(value: Sub) -> Self {
+        Expression::Sub(value)
     }
 }
 
@@ -45,6 +53,15 @@ pub struct Add(pub Box<Expression>, pub Box<Expression>);
 impl Eval for Add {
     fn eval(&self) -> f64 {
         &self.0.eval() + &self.1.eval()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Sub(pub Box<Expression>, pub Box<Expression>);
+
+impl Eval for Sub {
+    fn eval(&self) -> f64 {
+        &self.0.eval() - &self.1.eval()
     }
 }
 
