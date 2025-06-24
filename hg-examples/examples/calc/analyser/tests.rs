@@ -1,6 +1,9 @@
-use crate::analyser::{fold_mult, take_last, Element, Error};
-use crate::ast::{Eval, Expression, Number, Mult};
+use crate::analyser::{Element, Error, analyse, fold_mult, take_last};
+use crate::ast::{Eval, Expression, Mult, Number};
+use hg::lexer::Tokeniser;
 use hg::metadata::{Location, Metadata};
+use hg::parser::parse;
+use hg::symbols::SymbolTable;
 use hg::token::Ascii;
 use hg_examples::testing::metadata_bounds;
 
@@ -27,31 +30,31 @@ impl From<u8> for Element {
     }
 }
 
-fn with_metadata<I: IntoIterator<Item = Element>>(
-    into_iter: I,
-) -> impl Iterator<Item = Result<Element, Error>> {
-    into_iter.into_iter().enumerate().map(|(index, element)| {
+fn with_metadata<I: IntoIterator<Item = Element>>(elements: I) -> impl Iterator<Item = Element> {
+    elements.into_iter().enumerate().map(|(index, element)| {
         let metadata = Metadata {
-            start: Some(Location { line: 1, column: (index * 2 + 1) as u32 }),
-            end: Some(Location { line: 1, column: (index * 2 + 2) as u32 }),
+            start: Some(Location {
+                line: 1,
+                column: (index * 2 + 1) as u32,
+            }),
+            end: Some(Location {
+                line: 1,
+                column: (index * 2 + 2) as u32,
+            }),
         };
         match element {
-            Element::Expression(expression, _) => {
-                Element::Expression(expression, metadata)
-            }
-            Element::Operator(ascii, _) => {
-                Element::Operator(ascii, metadata)
-            }
+            Element::Expression(expression, _) => Element::Expression(expression, metadata),
+            Element::Operator(ascii, _) => Element::Operator(ascii, metadata),
         }
-    }).map(Ok)
+    })
 }
 
-fn fold_mult_ok<I: IntoIterator<Item = Element>>(into_iter: I) -> Vec<Element> {
-    fold_mult(with_metadata(into_iter)).unwrap()
+fn fold_mult_ok<I: IntoIterator<Item = Element>>(elements: I) -> Vec<Element> {
+    fold_mult(with_metadata(elements)).unwrap()
 }
 
-fn fold_mult_err<I: IntoIterator<Item = Element>>(into_iter: I) -> Error {
-    fold_mult(with_metadata(into_iter)).unwrap_err()
+fn fold_mult_err<I: IntoIterator<Item = Element>>(elements: I) -> Error {
+    fold_mult(with_metadata(elements)).unwrap_err()
 }
 
 #[test]
@@ -59,7 +62,12 @@ fn fold_mult_x2() {
     let elements = [Element::from(3), Element::from(b'*'), Element::from(4)];
     let folded = fold_mult_ok(elements);
     assert_eq!(1, folded.len());
-    let (expr, _) = folded.into_iter().next().unwrap().into_expression().unwrap();
+    let (expr, _) = folded
+        .into_iter()
+        .next()
+        .unwrap()
+        .into_expression()
+        .unwrap();
     assert_eq!(12.0, expr.eval());
 }
 
@@ -74,7 +82,12 @@ fn fold_mult_x3() {
     ];
     let folded = fold_mult_ok(elements);
     assert_eq!(1, folded.len());
-    let (expr, _) = folded.into_iter().next().unwrap().into_expression().unwrap();
+    let (expr, _) = folded
+        .into_iter()
+        .next()
+        .unwrap()
+        .into_expression()
+        .unwrap();
     assert_eq!(60.0, expr.eval());
 }
 
@@ -98,7 +111,10 @@ fn fold_mult_with_trailing_sum() {
                 metadata_bounds(1, 1, 1, 6)
             ),
             Element::Operator(Ascii(b'+'), metadata_bounds(1, 7, 1, 8)),
-            Element::Expression(Expression::from(Number::Integer(5)), metadata_bounds(1, 9, 1, 10))
+            Element::Expression(
+                Expression::from(Number::Integer(5)),
+                metadata_bounds(1, 9, 1, 10)
+            )
         ],
         folded
     );
@@ -140,11 +156,12 @@ fn fold_mult_with_mid_sum() {
 
 #[test]
 fn fold_mult_stray_leading_operator_err() {
-    let elements = [
-        Element::from(b'*'),
-    ];
+    let elements = [Element::from(b'*')];
     let err = fold_mult_err(elements);
-    assert_eq!("stray infix operator '*' at line 1, columns 1 to 2", err.to_string());
+    assert_eq!(
+        "stray operator '*' at line 1, columns 1 to 2",
+        err.to_string()
+    );
 }
 
 #[test]
@@ -157,5 +174,34 @@ fn fold_mult_stray_mid_operator_err() {
         Element::from(b'*'),
     ];
     let err = fold_mult_err(elements);
-    assert_eq!("stray infix operator '*' at line 1, columns 9 to 10", err.to_string());
+    assert_eq!(
+        "stray operator '*' at line 1, columns 9 to 10",
+        err.to_string()
+    );
+}
+
+fn analyse_ok(str: &str) -> f64 {
+    let evaluate = || -> Result<_, Box<dyn std::error::Error>> {
+        let tok = Tokeniser::new(str, SymbolTable::default());
+        let root = parse(tok)?;
+        let expr = analyse(root)?;
+        Ok(expr.eval())
+    };
+    evaluate().unwrap()
+}
+
+#[test]
+fn analyse_success() {
+    for (input, expect) in [
+        ("1", 1.0),
+        ("-1", -1.0),
+        ("-1 + 2", 1.0),
+        ("2 + -1", 1.0),
+        ("-2 + -1", -3.0),
+        ("-2 - -1", -1.0),
+    ] {
+        println!("testing {input}");
+        let actual = analyse_ok(input);
+        assert_eq!(actual, expect, "for input {input}");
+    }
 }

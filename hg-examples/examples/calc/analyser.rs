@@ -14,8 +14,8 @@ pub enum Error {
     #[error("unexpected symbol '{0}' at {1}")]
     UnexpectedSymbol(Ascii, Metadata),
 
-    #[error("stray infix operator '{0}' at {1}")]
-    StrayInfixOperator(Ascii, Metadata),
+    #[error("stray operator '{0}' at {1}")]
+    StrayOperator(Ascii, Metadata),
 
     #[error("stray expression at {0}")]
     StrayExpression(Metadata),
@@ -95,6 +95,7 @@ fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<
     }
     let elements = fold_prefix_sub(elements)?;
     let elements = fold_mult(elements)?;
+    let elements = fold_infix_sub(elements)?;
     let elements = fold_add(elements)?;
 
     // should be no symbols remaining, just one top-level expression
@@ -105,29 +106,34 @@ fn fold_elements<I: Iterator<Item = Result<Element, Error>>>(iter: I) -> Result<
             None => Ok(eval),
             Some(element) => {
                 let (ascii, metadata) = element.into_symbol().unwrap();
-                Err(Error::StrayInfixOperator(ascii, metadata))
+                Err(Error::StrayOperator(ascii, metadata))
             }
         },
-        Some(Element::Operator(ascii, metadata)) => Err(Error::StrayInfixOperator(ascii, metadata)),
+        Some(Element::Operator(ascii, metadata)) => Err(Error::StrayOperator(ascii, metadata)),
     }
 }
 
-fn fold_mult(elements: Vec<Element>) -> Result<Vec<Element>, Error> {
-    fold_infix(elements, |lhs, rhs| Expression::from(Mult(lhs, rhs)), b'*')
-}
-
-fn fold_prefix_sub(elements: Vec<Element>) -> Result<Vec<Element>, Error> {
+fn fold_prefix_sub<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
     fold_prefix(elements, |rhs| Expression::from(Sub(Box::new(Expression::from(Number::Integer(0))), rhs)), b'-')
 }
 
-fn fold_add(elements: Vec<Element>) -> Result<Vec<Element>, Error> {
+fn fold_mult<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
+    fold_infix(elements, |lhs, rhs| Expression::from(Mult(lhs, rhs)), b'*')
+}
+
+fn fold_infix_sub<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
+    fold_infix(elements, |lhs, rhs| Expression::from(Sub(lhs, rhs)), b'-')
+}
+
+fn fold_add<I: IntoIterator<Item = Element>>(elements: I) -> Result<Vec<Element>, Error> {
     fold_infix(elements, |lhs, rhs| Expression::from(Add(lhs, rhs)), b'+')
 }
 
 fn fold_prefix<
+    I: IntoIterator<Item = Element>,
     C: Fn(Box<Expression>) -> Expression,
 >(
-    elements: Vec<Element>,
+    elements: I,
     combiner: C,
     operator: u8,
 ) -> Result<Vec<Element>, Error> {
@@ -172,12 +178,11 @@ fn fold_prefix<
     Ok(refined)
 }
 
-
-
 fn fold_infix<
+    I: IntoIterator<Item = Element>,
     C: Fn(Box<Expression>, Box<Expression>) -> Expression,
 >(
-    elements: Vec<Element>,
+    elements: I,
     combiner: C,
     operator: u8,
 ) -> Result<Vec<Element>, Error> {
@@ -214,15 +219,12 @@ fn fold_infix<
             Element::Operator(ascii, metadata) => {
                 let last = take_last(&mut refined);
                 match last {
-                    None => {
-                        refined.push(Element::Operator(ascii, metadata));
+                    None | Some(Element::Operator(_, _)) => {
+                        return Err(Error::StrayOperator(ascii, metadata))
                     },
                     Some(last @ Element::Expression(_, _)) => {
                         refined.push(last);
                         refined.push(Element::Operator(ascii, metadata));
-                    }
-                    Some(Element::Operator(_, _)) => {
-                        return Err(Error::StrayInfixOperator(ascii, metadata));
                     }
                 }
             },

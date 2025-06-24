@@ -9,7 +9,7 @@ mod analyser;
 mod ast;
 
 fn main() -> Result<(), Box<dyn Error>>{
-    let str = r#"-1 * 2 + 4 + 3 * 2 + -5"#;
+    let str = "-1 * 2 + 4 + 3 * 2 + -5";
     let tok = Tokeniser::new(str, SymbolTable::default());
     let root = parse(tok)?;
     let expr = analyse(root)?;
