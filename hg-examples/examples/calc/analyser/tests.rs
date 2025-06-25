@@ -180,14 +180,11 @@ fn fold_mult_stray_mid_operator_err() {
     );
 }
 
-fn analyse_ok(str: &str) -> f64 {
-    let evaluate = || -> Result<_, Box<dyn std::error::Error>> {
-        let tok = Tokeniser::new(str, SymbolTable::default());
-        let root = parse(tok)?;
-        let expr = analyse(root)?;
-        Ok(expr.eval())
-    };
-    evaluate().unwrap()
+fn evaluate(str: &'static str) -> Result<f64, Box<dyn std::error::Error>> {
+    let tok = Tokeniser::new(str, SymbolTable::default());
+    let root = parse(tok)?;
+    let expr = analyse(root)?;
+    Ok(expr.eval())
 }
 
 #[test]
@@ -244,8 +241,34 @@ fn lex_parse_analyse() {
         ("16 / (4 + 6 - 2)", 2.0),
         ("16 / -(4 + 6 - 2)", -2.0),
     ] {
-        println!("testing {input}");
-        let actual = analyse_ok(input);
-        assert_eq!(expect, actual, "for input {input}");
+        let actual = evaluate(input);
+        match actual {
+            Ok(actual) => {
+                assert_eq!(expect, actual, "for input {input}");
+            }
+            Err(err) => {
+                panic!("unexpected error \"{err}\" for input {input}")
+            }
+        }
+    }
+}
+
+#[test]
+fn lex_parse_analyse_err() {
+    for (input, expect) in [
+        ("", "no expression"),
+        ("+", "stray operator '+' at line 1, columns 1 to 1"),
+        ("1 1", "stray expression at line 1, columns 3 to 3"),
+        ("1 + + 1", "stray operator '+' at line 1, columns 5 to 5"),
+    ] {
+        let actual = evaluate(input);
+        match actual {
+            Ok(actual) => {
+                panic!("unexpected result {actual} for input {input}")
+            }
+            Err(err) => {
+                assert_eq!(expect, err.to_string(), "for input {input}")
+            }
+        }
     }
 }

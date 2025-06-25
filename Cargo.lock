@@ -184,7 +184,6 @@ name = "hg"
 version = "0.3.0"
 dependencies = [
  "criterion",
- "once_cell",
  "thiserror",
 ]
 

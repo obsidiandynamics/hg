@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 pub const SYMBOL_MAP: [bool; 256] = [
     /*
@@ -128,7 +128,7 @@ impl<'a> SymbolTable<'a> {
     }
 }
 
-static DEFAULT_SYMBOL_TABLE: Lazy<SymbolTable> = Lazy::new(|| {
+static DEFAULT_SYMBOL_TABLE: LazyLock<SymbolTable> = LazyLock::new(|| {
     let mut symbols = SymbolTable::empty();
     symbols.add(SymbolString::try_from("::").unwrap()).unwrap();
     symbols.add(SymbolString::try_from("--").unwrap()).unwrap();

@@ -10,7 +10,6 @@ repository.workspace = true
 
 [dependencies]
 thiserror.workspace = true
-once_cell.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
