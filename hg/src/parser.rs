@@ -39,6 +39,13 @@ pub enum Error<'a> {
     EmptyRelationSegment,
 }
 
+// #[inline]
+// fn init_option<T: Clone>(option: &mut Option<T>, value: &T) {
+//     if option.is_none() {
+//         *option = Some(value.clone())
+//     }
+// }
+
 #[inline]
 pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Verse<'a>, Error<'a>> {
     let mut fragments = FragmentStream::from(into_iter.into_iter());
@@ -49,8 +56,10 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
         match token {
             Token::Newline => {
                 if !phrase.is_empty() {
-                    let phrase = mem::take(&mut phrase);
-                    verse.push(Phrase(phrase));
+                    let phrase: Vec<Node> = mem::take(&mut phrase);
+                    let start = phrase[0].metadata().start.clone();
+                    let end = phrase[phrase.len() - 1].metadata().end.clone();
+                    verse.push(Phrase(phrase, Metadata { start, end }));
                 }
             }
             Token::Left(delimiter) => {
@@ -89,8 +98,10 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
             match token {
                 Token::Newline => {
                     if !phrase.is_empty() {
-                        let phrase = mem::take(&mut phrase);
-                        verse.push(Phrase(phrase));
+                        let phrase: Vec<Node> = mem::take(&mut phrase);
+                        let start = phrase[0].metadata().start.clone();
+                        let end = phrase[phrase.len() - 1].metadata().end.clone();
+                        verse.push(Phrase(phrase, Metadata { start, end }));
                     }
                 }
                 Token::Left(delimiter) => {
@@ -100,7 +111,9 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                 Token::Symbol(Ascii(b',')) => {
                     if !phrase.is_empty() {
                         let phrase = mem::take(&mut phrase);
-                        verse.push(Phrase(phrase));
+                        let start = phrase[0].metadata().start.clone();
+                        let end = phrase[phrase.len() - 1].metadata().end.clone();
+                        verse.push(Phrase(phrase, Metadata { start, end }));
                     }
                     if verse.is_empty() {
                         return Err(Error::EmptyVerse)
@@ -115,14 +128,16 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                 }
                 Token::Right(right_delimiter) => {
                     return if left_delimiter == right_delimiter {
+                        let end = metadata.end;
                         if !phrase.is_empty() {
-                            verse.push(Phrase(phrase));
+                            let start = phrase[0].metadata().start.clone();
+                            let end = phrase[phrase.len() - 1].metadata().end.clone();
+                            verse.push(Phrase(phrase, Metadata { start, end }));
                         }
                         if !verse.is_empty() {
                             verses.push(Verse(verse));
                         }
-                        let end = metadata.end;
-                        Ok(Node::List(verses, Metadata { start, end}))
+                        Ok(Node::List(verses, Metadata { start, end }))
                     } else {
                         Err(Error::UnexpectedToken(Token::Right(right_delimiter)))
                     }
@@ -160,18 +175,21 @@ fn parse_relation<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_loca
                 Token::Right(_) | Token::Symbol(Ascii(b',')) | Token::Newline => {
                     fragments.stash(Ok((token, metadata))); // restore token for the parent parser
                     let start = head.metadata().start.clone();
-                    let end = if tail.is_empty() {
-                        colon_location
+                    let (tail_start, tail_end) = if tail.is_empty() {
+                        (colon_location.clone(), colon_location)
                     } else {
-                        tail[tail.len() - 1].metadata().end.clone()
+                        (tail[0].metadata().start.clone(), tail[tail.len() - 1].metadata().end.clone())
                     };
-                    return Ok(Node::Relation(Box::new(head), Phrase(tail), Metadata { start, end }))
+                    let phrase = Phrase(tail, Metadata { start: tail_start, end: tail_end.clone() });
+                    return Ok(Node::Relation(Box::new(head), phrase, Metadata { start, end: tail_end }))
                 }
                 Token::Symbol(Ascii(b':')) => {
                     return if !tail.is_empty() {
-                        let previous_end = tail[tail.len() - 1].metadata().end.clone();
+                        let tail_start = tail[0].metadata().start.clone();
+                        let tail_end = tail[tail.len() - 1].metadata().end.clone();
                         let head_start = head.metadata().start.clone();
-                        let wrapped = Node::Relation(Box::new(head), Phrase(tail), Metadata { start: head_start, end: previous_end });
+                        let phrase = Phrase(tail, Metadata { start: tail_start, end: tail_end.clone()});
+                        let wrapped = Node::Relation(Box::new(head), phrase, Metadata { start: head_start, end: tail_end });
                         let wrapper = parse_relation(wrapped, metadata.end, fragments)?;
                         Ok(wrapper)
                     } else {

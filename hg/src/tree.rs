@@ -20,7 +20,7 @@ impl Node<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Phrase<'a>(pub Vec<Node<'a>>);
+pub struct Phrase<'a>(pub Vec<Node<'a>>, pub Metadata);
 
 impl<'a> From<Phrase<'a>> for Vec<Node<'a>> {
     fn from(phrase: Phrase<'a>) -> Self {
@@ -46,10 +46,10 @@ impl<'a> From<Verse<'a>> for Vec<Phrase<'a>> {
 #[macro_export]
 macro_rules! phrase {
     () => (
-        $crate::tree::Phrase(Vec::new())
+        $crate::tree::Phrase(Vec::new(), $crate::metadata::Metadata::unspecified())
     );
     ($($x:expr),+ $(,)?) => (
-        $crate::tree::Phrase((vec![$($x),+]))
+        $crate::tree::Phrase((vec![$($x),+]), $crate::metadata::Metadata::unspecified())
     );
 }
 
@@ -72,13 +72,13 @@ mod tests {
     #[test]
     fn empty_phrase() {
         let phrase = phrase![];
-        assert_eq!(Phrase(vec![]), phrase);
+        assert_eq!(Phrase(vec![], Metadata::unspecified()), phrase);
     }
 
     #[test]
     fn nonempty_phrase() {
         let phrase = phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())];
-        assert_eq!(Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())]), phrase);
+        assert_eq!(Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())], Metadata::unspecified()), phrase);
     }
     
     #[test]
@@ -97,13 +97,13 @@ mod tests {
     #[test]
     fn nonempty_verse() {
         let verse = verse![phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())]];
-        assert_eq!(Verse(vec![Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())])]), verse);
+        assert_eq!(Verse(vec![Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())], Metadata::unspecified())]), verse);
     }
 
     #[test]
     fn vec_from_verse() {
         let verse = verse![phrase![Node::Raw(Token::Integer(1), Metadata::unspecified())]];
         let vec: Vec<_> = verse.into();
-        assert_eq!(vec![Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())])], vec);
+        assert_eq!(vec![Phrase(vec![Node::Raw(Token::Integer(1), Metadata::unspecified())], Metadata::unspecified())], vec);
     }
 }
