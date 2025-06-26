@@ -1,10 +1,12 @@
-use crate::analyser::{Element, Error, analyse, fold_mult, take_last};
+use crate::analyser::{Element, Error, analyse, fold_mult, take_last, flatten};
 use crate::ast::{Eval, Expression, Mult, Number};
 use hg::lexer::Tokeniser;
 use hg::metadata::{Location, Metadata};
 use hg::parser::parse;
 use hg::symbols::SymbolTable;
-use hg::token::Ascii;
+use hg::token::{Ascii, Token};
+use hg::{phrase, verse};
+use hg::tree::Node;
 use hg_examples::testing::metadata_bounds;
 
 #[test]
@@ -47,6 +49,47 @@ fn with_metadata<I: IntoIterator<Item = Element>>(elements: I) -> impl Iterator<
             Element::Operator(ascii, _) => Element::Operator(ascii, metadata),
         }
     })
+}
+
+#[test]
+fn flatten_one_verse_one_phrase() {
+    let a = Node::Raw(Token::Symbol(Ascii(b'-')), Metadata::unspecified());
+    let b = Node::Raw(Token::Symbol(Ascii(b'?')), Metadata::unspecified());
+    let verse = verse![
+        phrase![
+            a.clone(), b.clone()
+        ]
+    ];
+    assert_eq!(vec![a, b], flatten([verse]).unwrap().collect::<Vec<_>>());
+}
+
+#[test]
+fn flatten_one_verse_no_phrases() {
+    let verse = verse![
+        phrase![]
+    ];
+    assert_eq!(vec![] as Vec<Node<'_>>, flatten([verse]).unwrap().collect::<Vec<_>>());
+}
+
+#[test]
+fn flatten_two_verses_err() {
+    let verses = vec![verse![], verse![]];
+    assert_eq!("unexpected comma separator", flatten(verses).map(|_|()).unwrap_err().to_string());
+}
+
+#[test]
+fn flatten_two_phrases_err() {
+    let verse = verse![
+        phrase![],
+        phrase![]
+    ];
+    assert_eq!("unexpected line separator", flatten([verse]).map(|_|()).unwrap_err().to_string());
+}
+
+#[test]
+fn flatten_no_verses() {
+    let verse = verse![];
+    assert_eq!(vec![] as Vec<Node<'_>>, flatten([verse]).unwrap().collect::<Vec<_>>());
 }
 
 fn fold_mult_ok<I: IntoIterator<Item = Element>>(elements: I) -> Vec<Element> {
@@ -260,6 +303,9 @@ fn lex_parse_analyse_err() {
         ("+", "stray operator '+' at line 1, columns 1 to 1"),
         ("1 1", "stray expression at line 1, columns 3 to 3"),
         ("1 + + 1", "stray operator '+' at line 1, columns 5 to 5"),
+        ("1, 2", "unexpected token Symbol(Ascii(b','))"),
+        ("1 + (2,3)", "unexpected comma separator"),
+        ("1 + (2\n3)", "unexpected line separator"),
     ] {
         let actual = evaluate(input);
         match actual {

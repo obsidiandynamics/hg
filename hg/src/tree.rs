@@ -1,7 +1,7 @@
 use crate::metadata::Metadata;
 use crate::token::Token;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Node<'a> {
     Raw(Token<'a>, Metadata),
     List(Vec<Verse<'a>>, Metadata),
@@ -19,7 +19,7 @@ impl Node<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Phrase<'a>(pub Vec<Node<'a>>);
 
 impl<'a> From<Phrase<'a>> for Vec<Node<'a>> {
@@ -28,7 +28,7 @@ impl<'a> From<Phrase<'a>> for Vec<Node<'a>> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Verse<'a>(pub Vec<Phrase<'a>>);
 
 impl<'a> Verse<'a> {

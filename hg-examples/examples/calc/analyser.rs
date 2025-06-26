@@ -22,6 +22,12 @@ pub enum Error {
 
     #[error("no expression")]
     NoExpression,
+    
+    #[error("unexpected line separator")]
+    MultiplePhrases,
+
+    #[error("unexpected comma separator")]
+    MultipleVerses
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,14 +53,44 @@ impl Element {
 }
 
 pub fn analyse(verse: Verse) -> Result<Expression, Error> {
-    let node_iter = flatten([verse]);
+    let node_iter = flatten([verse])?;
     let elements = process_elements(node_iter);
     let root = fold_elements(elements)?;
     Ok(root)
 }
 
-fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(into_iter: I) -> impl Iterator<Item = Node<'a>> {
-    into_iter.into_iter().flat_map(Verse::flatten)
+fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(into_iter: I) -> Result<impl Iterator<Item = Node<'a>>, Error> {
+    let mut verses = into_iter.into_iter();
+    match verses.next() {
+        None => {
+            Ok(vec![].into_iter())
+        }
+        Some(first_verse) => {
+            match verses.next() {
+                None => {
+                    let mut phrases = first_verse.0.into_iter();
+                    match phrases.next() {
+                        Some(first_phrase) => {
+                            match phrases.next() {
+                                None => {
+                                    Ok(first_phrase.0.into_iter())
+                                }
+                                Some(_) => {
+                                    Err(Error::MultiplePhrases)
+                                }
+                            }
+                        }
+                        None => {
+                            Ok(vec![].into_iter())
+                        }
+                    }
+                }
+                Some(_) => {
+                    Err(Error::MultipleVerses)
+                }
+            }
+        }
+    }
 }
 
 fn process_elements<'a, I: Iterator<Item = Node<'a>>>(
@@ -75,7 +111,7 @@ fn process_elements<'a, I: Iterator<Item = Node<'a>>>(
                 _ => Err(Error::UnexpectedSymbol(Ascii(byte), metadata))?,
             },
             Node::List(verses, metadata) => {
-                let list_elements = process_elements(flatten(verses));
+                let list_elements = process_elements(flatten(verses)?);
                 let folded = fold_elements(list_elements)?;
                 Element::Expression(folded, metadata)
             }
