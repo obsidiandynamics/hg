@@ -20,8 +20,8 @@ pub enum Error<'a> {
     #[error("unterminated list")]
     UnterminatedList,
 
-    #[error("unterminated cons")]
-    UnterminatedCons,
+    #[error("unterminated relation")]
+    UnterminatedRelation,
 
     #[error("unterminated prefix")]
     UnterminatedPrefix,
@@ -35,8 +35,8 @@ pub enum Error<'a> {
     #[error("empty verse")]
     EmptyVerse,
 
-    #[error("empty cons segment")]
-    EmptyConsSegment,
+    #[error("empty relation segment")]
+    EmptyRelationSegment,
 }
 
 #[inline]
@@ -58,8 +58,8 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
                 phrase.push(child);
             }
             Token::Symbol(Ascii(b':')) => {
-                let head = cons_head(&mut phrase)?;
-                let child = parse_cons(head, metadata.end, &mut fragments)?;
+                let head = relation_head(&mut phrase)?;
+                let child = parse_relation(head, metadata.end, &mut fragments)?;
                 phrase.push(child);
             }
             Token::Symbol(Ascii(b',')) | Token::Right(_) => {
@@ -109,8 +109,8 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
                     verses.push(Verse(verse));
                 }
                 Token::Symbol(Ascii(b':')) => {
-                    let head = cons_head(&mut phrase)?;
-                    let child = parse_cons(head, metadata.end, fragments)?;
+                    let head = relation_head(&mut phrase)?;
+                    let child = parse_relation(head, metadata.end, fragments)?;
                     phrase.push(child);
                 }
                 Token::Right(right_delimiter) => {
@@ -138,16 +138,16 @@ fn parse_list<'a, I: Iterator<Item=Fragment<'a>>>(start: Option<Location>, left_
 }
 
 #[inline]
-fn cons_head<'a>(nodes: &mut Vec<Node<'a>>) -> Result<Node<'a>, Error<'a>> {
+fn relation_head<'a>(nodes: &mut Vec<Node<'a>>) -> Result<Node<'a>, Error<'a>> {
     if !nodes.is_empty() {
         Ok(nodes.remove(nodes.len() - 1))
     } else {
-        Err(Error::EmptyConsSegment)
+        Err(Error::EmptyRelationSegment)
     }
 }
 
 #[inline]
-fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location: Option<Location>, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
+fn parse_relation<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location: Option<Location>, fragments: &mut FragmentStream<'a, I>) -> Result<Node<'a>, Error<'a>> {
     let mut tail = vec![];
     loop {
         if let Some(fragment) = fragments.next() {
@@ -165,17 +165,17 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
                     } else {
                         tail[tail.len() - 1].metadata().end.clone()
                     };
-                    return Ok(Node::Cons(Box::new(head), Phrase(tail), Metadata { start, end }))
+                    return Ok(Node::Relation(Box::new(head), Phrase(tail), Metadata { start, end }))
                 }
                 Token::Symbol(Ascii(b':')) => {
                     return if !tail.is_empty() {
                         let previous_end = tail[tail.len() - 1].metadata().end.clone();
                         let head_start = head.metadata().start.clone();
-                        let wrapped = Node::Cons(Box::new(head), Phrase(tail), Metadata { start: head_start, end: previous_end });
-                        let wrapper = parse_cons(wrapped, metadata.end, fragments)?;
+                        let wrapped = Node::Relation(Box::new(head), Phrase(tail), Metadata { start: head_start, end: previous_end });
+                        let wrapper = parse_relation(wrapped, metadata.end, fragments)?;
                         Ok(wrapper)
                     } else {
-                        Err(Error::EmptyConsSegment)
+                        Err(Error::EmptyRelationSegment)
                     }
                 },
                 Token::Text(_) | Token::Character(_) | Token::Integer(_) | Token::Decimal(_) | Token::Boolean(_) | Token::Ident(_) | Token::Symbol(_) | Token::ExtendedSymbol(_) => {
@@ -183,7 +183,7 @@ fn parse_cons<'a, I: Iterator<Item=Fragment<'a>>>(head: Node<'a>, colon_location
                 }
             }
         } else {
-            return Err(Error::UnterminatedCons)
+            return Err(Error::UnterminatedRelation)
         }
     }
 }

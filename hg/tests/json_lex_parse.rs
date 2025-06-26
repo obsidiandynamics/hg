@@ -4,7 +4,7 @@ use hg::parser::parse;
 use hg::symbols::SymbolTable;
 use hg::token::Token::{Boolean, Decimal, Ident, Integer, Symbol, Text};
 use hg::token::{Ascii, Token};
-use hg::tree::Node::{Cons, List, Raw};
+use hg::tree::Node::{Relation, List, Raw};
 use hg::tree::{Node, Phrase, Verse};
 use hg::{lexer, token, verse};
 use std::iter::Map;
@@ -53,7 +53,7 @@ fn negative(value: impl Into<Vec<Node<'static>>>) -> Vec<Node<'static>> {
 }
 
 fn key_value(key: &'static str, value: Vec<Node<'static>>) -> Vec<Node<'static>> {
-    vec![Cons(
+    vec![Relation(
         Box::new(Raw(Text(key.into()), Metadata::unspecified())),
         Phrase(value), 
         Metadata::unspecified()

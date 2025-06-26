@@ -3,7 +3,7 @@ use crate::parser::{parse, Error};
 use crate::token::ListDelimiter::{Brace, Paren};
 use crate::token::Token::{Decimal, ExtendedSymbol, Ident, Integer, Left, Newline, Right, Symbol, Text};
 use crate::token::{Ascii, AsciiSlice, Token};
-use crate::tree::Node::{Cons, List, Raw};
+use crate::tree::Node::{Relation, List, Raw};
 use crate::tree::Verse;
 use crate::{lexer, phrase, token, verse};
 use std::iter::{Enumerate, Map};
@@ -270,11 +270,11 @@ fn paren_list_expected_brace_token_err() {
 }
 
 #[test]
-fn cons_single() {
+fn relation_single() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(
+            Relation(
                 Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
                 phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6))], 
                 Metadata::bounds(1, 1, 1, 6)
@@ -284,11 +284,11 @@ fn cons_single() {
 }
 
 #[test]
-fn cons_single_long_tail() {
+fn relation_single_long_tail() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(
+            Relation(
                 Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
                 phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6)), Raw(Integer(3), Metadata::bounds(1, 7, 1, 8))], 
                 Metadata::bounds(1, 1, 1, 8)
@@ -298,13 +298,13 @@ fn cons_single_long_tail() {
 }
 
 #[test]
-fn cons_multiple() {
+fn relation_multiple() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(
+            Relation(
                 Box::new(
-                    Cons(
+                    Relation(
                         Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
                         phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6)), Raw(Integer(3), Metadata::bounds(1, 7, 1, 8))], 
                         Metadata::bounds(1, 1, 1, 8))
@@ -317,15 +317,15 @@ fn cons_multiple() {
 }
 
 #[test]
-fn cons_multiple_trailing_empty_segment() {
+fn relation_multiple_trailing_empty_segment() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Symbol(Ascii(b':')), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(
+            Relation(
                 Box::new(
-                    Cons(
+                    Relation(
                         Box::new(
-                            Cons(
+                            Relation(
                                 Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
                                 phrase![Raw(Integer(2), Metadata::bounds(1, 5, 1, 6)), Raw(Integer(3), Metadata::bounds(1, 7, 1, 8))], 
                                 Metadata::bounds(1, 1, 1, 8)
@@ -343,11 +343,11 @@ fn cons_multiple_trailing_empty_segment() {
 }
 
 #[test]
-fn cons_with_list_tail() {
+fn relation_with_list_tail() {
     let verse = parse_ok(vec![Integer(1), Symbol(Ascii(b':')), Left(Brace), Integer(2), Newline, Integer(3), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
-            Cons(
+            Relation(
                 Box::new(Raw(Integer(1), Metadata::bounds(1, 1, 1, 2))), 
                 phrase![
                     List(vec![
@@ -368,16 +368,16 @@ fn cons_with_list_tail() {
 }
 
 #[test]
-fn cons_inside_brace_list() {
+fn relation_inside_brace_list() {
     let verse = parse_ok(vec![Left(Brace), Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Right(Brace), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
                 verse![
                     phrase![
-                        Cons(
+                        Relation(
                             Box::new(
-                                Cons(
+                                Relation(
                                     Box::new(Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))), 
                                     phrase![Raw(Integer(2), Metadata::bounds(1, 7, 1, 8)), Raw(Integer(3), Metadata::bounds(1, 9, 1, 10))], 
                                     Metadata::bounds(1, 3, 1, 10)
@@ -394,16 +394,16 @@ fn cons_inside_brace_list() {
 }
 
 #[test]
-fn cons_inside_list() {
+fn relation_inside_list() {
     let verse = parse_ok(vec![Left(Paren), Integer(1), Symbol(Ascii(b':')), Integer(2), Integer(3), Symbol(Ascii(b':')), Integer(4), Right(Paren), Newline]);
     assert_eq!(verse![
         phrase![
             List(vec![
                 verse![
                     phrase![
-                        Cons(
+                        Relation(
                             Box::new(
-                                Cons(
+                                Relation(
                                     Box::new(Raw(Integer(1), Metadata::bounds(1, 3, 1, 4))), 
                                     phrase![Raw(Integer(2), Metadata::bounds(1, 7, 1, 8)), Raw(Integer(3), Metadata::bounds(1, 9, 1, 10))], 
                                     Metadata::bounds(1, 3, 1, 10)
@@ -420,21 +420,21 @@ fn cons_inside_list() {
 }
 
 #[test]
-fn cons_empty_starting_segment_err() {
+fn relation_empty_starting_segment_err() {
     let err = parse_err(vec![Symbol(Ascii(b':')), Integer(2)]);
-    assert_eq!("empty cons segment", err.to_string());
+    assert_eq!("empty relation segment", err.to_string());
 }
 
 #[test]
-fn cons_empty_intermediate_segment_err() {
+fn relation_empty_intermediate_segment_err() {
     let err = parse_err(vec![Integer(1), Symbol(Ascii(b':')), Integer(2), Symbol(Ascii(b':')), Symbol(Ascii(b':'))]);
-    assert_eq!("empty cons segment", err.to_string());
+    assert_eq!("empty relation segment", err.to_string());
 }
 
 #[test]
-fn cons_unterminated_err() {
+fn relation_unterminated_err() {
     let err = parse_err(vec![Integer(1), Symbol(Ascii(b':')), Integer(2)]);
-    assert_eq!("unterminated cons", err.to_string());
+    assert_eq!("unterminated relation", err.to_string());
 }
 
 #[test]

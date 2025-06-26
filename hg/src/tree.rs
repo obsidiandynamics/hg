@@ -5,7 +5,7 @@ use crate::token::Token;
 pub enum Node<'a> {
     Raw(Token<'a>, Metadata),
     List(Vec<Verse<'a>>, Metadata),
-    Cons(Box<Node<'a>>, Phrase<'a>, Metadata),
+    Relation(Box<Node<'a>>, Phrase<'a>, Metadata),
 }
 
 impl Node<'_> {
@@ -14,7 +14,7 @@ impl Node<'_> {
         match self {
             Node::Raw(_, metadata) => metadata,
             Node::List(_, metadata) => metadata,
-            Node::Cons(_, _, metadata) => metadata,
+            Node::Relation(_, _, metadata) => metadata,
         }
     }
 }

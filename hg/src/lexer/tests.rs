@@ -1223,7 +1223,7 @@ fn mixed_list_with_many_items() {
 }
 
 #[test]
-fn mixed_cons_single_long_tail() {
+fn mixed_relation_single_long_tail() {
     let str = r#"1:2 3"#;
     let (tokens, metadata) = tok_ok(str);
     assert_eq!(
@@ -1249,7 +1249,7 @@ fn mixed_cons_single_long_tail() {
 }
 
 #[test]
-fn mixed_cons_multiple() {
+fn mixed_relation_multiple() {
     let str = r#"1:2 3:4"#;
     let (tokens, metadata) = tok_ok(str);
     assert_eq!(
@@ -1279,7 +1279,7 @@ fn mixed_cons_multiple() {
 }
 
 #[test]
-fn mixed_cons_inside_list() {
+fn mixed_relation_inside_list() {
     let str = r#"{1:2 3:4}"#;
     let (tokens, metadata) = tok_ok(str);
     assert_eq!(
