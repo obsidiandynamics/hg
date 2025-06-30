@@ -55,7 +55,7 @@ fn negative(value: impl Into<Vec<Node<'static>>>) -> Vec<Node<'static>> {
 fn key_value(key: &'static str, value: Vec<Node<'static>>) -> Vec<Node<'static>> {
     vec![Relation(
         Box::new(Raw(Text(key.into()), Metadata::unspecified())),
-        Phrase(value, Metadata::unspecified()), 
+        Phrase::new(value, Metadata::unspecified()), 
         Metadata::unspecified()
     )]
 }
@@ -71,7 +71,7 @@ impl ArrayBuilder {
 
 impl From<ArrayBuilder> for Vec<Node<'static>> {
     fn from(array_builder: ArrayBuilder) -> Self {
-        let verses = array_builder.0.into_iter().map(|element| verse![Phrase(element, Metadata::unspecified())]).collect();
+        let verses = array_builder.0.into_iter().map(|element| verse![Phrase::new(element, Metadata::unspecified())]).collect();
         vec![List(verses, Metadata::unspecified())]
     }
 }
@@ -90,7 +90,7 @@ impl ObjectBuilder {
 
 impl From<ObjectBuilder> for Vec<Node<'static>> {
     fn from(object_builder: ObjectBuilder) -> Self {
-        let verses = object_builder.0.into_iter().map(|(key, value)| verse![Phrase(key_value(key, value), Metadata::unspecified())]).collect();
+        let verses = object_builder.0.into_iter().map(|(key, value)| verse![Phrase::new(key_value(key, value), Metadata::unspecified())]).collect();
         vec![List(verses, Metadata::unspecified())]
     }
 }
@@ -110,7 +110,7 @@ impl ObjectKeyValueBuilder {
 }
 
 fn root(node: impl Into<Vec<Node<'static>>>) -> Verse<'static> {
-    verse![Phrase(node.into(), Metadata::unspecified())]
+    verse![Phrase::new(node.into(), Metadata::unspecified())]
 }
 
 #[test]

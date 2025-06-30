@@ -6,6 +6,7 @@ use hg::parser::parse;
 use hg::symbols::SymbolTable;
 use hg::token::{Ascii, Token};
 use hg::{phrase, verse};
+use hg::token::Token::Symbol;
 use hg::tree::Node;
 use hg_examples::testing::metadata_bounds;
 
@@ -64,14 +65,6 @@ fn flatten_one_verse_one_phrase() {
 }
 
 #[test]
-fn flatten_one_verse_no_phrases() {
-    let verse = verse![
-        phrase![]
-    ];
-    assert_eq!(vec![] as Vec<Node<'_>>, flatten([verse]).unwrap().collect::<Vec<_>>());
-}
-
-#[test]
 fn flatten_two_verses_err() {
     let verses = vec![verse![], verse![]];
     assert_eq!("unexpected comma separator", flatten(verses).map(|_|()).unwrap_err().to_string());
@@ -80,8 +73,8 @@ fn flatten_two_verses_err() {
 #[test]
 fn flatten_two_phrases_err() {
     let verse = verse![
-        phrase![],
-        phrase![]
+        phrase![Node::Raw(Symbol(Ascii(b'-')), Metadata::unspecified())],
+        phrase![Node::Raw(Symbol(Ascii(b'-')), Metadata::unspecified())]
     ];
     assert_eq!("unexpected line separator", flatten([verse]).map(|_|()).unwrap_err().to_string());
 }

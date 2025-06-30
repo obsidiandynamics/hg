@@ -68,12 +68,12 @@ fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(into_iter: I) -> Result<impl I
         Some(first_verse) => {
             match verses.next() {
                 None => {
-                    let mut phrases = first_verse.0.into_iter();
+                    let mut phrases = first_verse.into_phrases().into_iter();
                     match phrases.next() {
                         Some(first_phrase) => {
                             match phrases.next() {
                                 None => {
-                                    Ok(first_phrase.0.into_iter())
+                                    Ok(first_phrase.into_nodes().into_iter())
                                 }
                                 Some(_) => {
                                     Err(Error::MultiplePhrases)
