@@ -216,7 +216,7 @@ fn fold_mult_stray_mid_operator_err() {
 
 fn evaluate(str: &'static str) -> Result<f64, Box<dyn std::error::Error>> {
     let tok = Tokeniser::new(str, SymbolTable::default());
-    let root = parse(tok)?.ok_or("no expression")?;
+    let root = parse(tok)?.ok_or(Error::NoExpression)?;
     let expr = analyse(root)?;
     Ok(expr.eval())
 }
@@ -291,10 +291,15 @@ fn lex_parse_analyse() {
 fn lex_parse_analyse_err() {
     for (input, expect) in [
         ("", "no expression"),
-        ("+", "stray operator '+' at line 1, columns 1 to 1"),
-        ("1 1", "stray expression at line 1, columns 3 to 3"),
-        ("1 + + 1", "stray operator '+' at line 1, columns 5 to 5"),
+        ("()", "no expression"),
+        ("9_223_372_036_854_775_808", "invalid 64-bit signed integer 9223372036854775808 at line 1, columns 1 to 25"),
+        ("(z)", "unexpected node at line 1, column 2"),
+        ("+", "stray operator '+' at line 1, column 1"),
+        ("1 1", "stray expression at line 1, column 3"),
+        ("1 + + 1", "stray operator '+' at line 1, column 5"),
         ("1, 2", "unexpected token Symbol(Ascii(b','))"),
+        ("1 ^ 2", "unexpected symbol '^' at line 1, column 3"),
+        ("1:2", "unexpected node at line 1, columns 1 to 3"),
         ("1 + (2,3)", "unexpected comma separator"),
         ("1 + (2\n3)", "unexpected line separator"),
     ] {

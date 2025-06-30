@@ -39,11 +39,19 @@ impl Display for Metadata {
             }
             (Some(start), Some(end)) => {
                 if start.line == end.line {
-                    write!(
-                        f,
-                        "line {}, columns {} to {}",
-                        start.line, start.column, end.column
-                    )
+                    if start.column == end.column {
+                        write!(
+                            f,
+                            "line {}, column {}",
+                            start.line, start.column
+                        )
+                    } else {
+                        write!(
+                            f,
+                            "line {}, columns {} to {}",
+                            start.line, start.column, end.column
+                        )
+                    }
                 } else {
                     write!(f, "{start} to {end}")
                 }
@@ -115,6 +123,13 @@ mod tests {
                     end: Some(Location { line: 2, column: 5 }),
                 },
                 "line 2, columns 3 to 5",
+            ),
+            (
+                Metadata {
+                    start: Some(Location { line: 2, column: 5 }),
+                    end: Some(Location { line: 2, column: 5 }),
+                },
+                "line 2, column 5",
             ),
             (
                 Metadata {

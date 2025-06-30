@@ -24,10 +24,10 @@ pub enum Error {
     NoExpression,
     
     #[error("unexpected line separator")]
-    MultiplePhrases,
+    UnexpectedLineSeparator,
 
     #[error("unexpected comma separator")]
-    MultipleVerses
+    UnexpectedCommaSeparator
 }
 
 #[derive(Debug, PartialEq)]
@@ -75,12 +75,12 @@ fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(verses: I) -> Result<impl Iter
                             Ok(first_phrase.into_nodes().into_iter())
                         }
                         Some(_) => {
-                            Err(Error::MultiplePhrases)
+                            Err(Error::UnexpectedLineSeparator)
                         }
                     }
                 }
                 Some(_) => {
-                    Err(Error::MultipleVerses)
+                    Err(Error::UnexpectedCommaSeparator)
                 }
             }
         }
