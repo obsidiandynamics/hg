@@ -51,7 +51,7 @@ pub struct Verse<'a>(Vec<Phrase<'a>>);
 impl<'a> Verse<'a> {
     #[inline]
     pub fn new(phrases: Vec<Phrase<'a>>) -> Self {
-        // assert!(!phrases.is_empty(), "verse must comprise at least one phrase");
+        assert!(!phrases.is_empty(), "verse must comprise at least one phrase");
         Self(phrases)
     }
 
@@ -128,9 +128,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_verse() {
-        let verse = verse![];
-        assert_eq!(Verse(vec![]), verse);
+    #[should_panic(expected = "verse must comprise at least one phrase")]
+    fn empty_verse_err() {
+        let _ = verse![];
     }
 
     #[test]

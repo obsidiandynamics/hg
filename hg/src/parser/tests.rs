@@ -18,7 +18,7 @@ fn map_metadata(tokens: Vec<Token>) -> Map<Enumerate<IntoIter<Token>>, fn((usize
         })
 }
 
-fn parse_ok(tokens: Vec<Token>) -> Verse {
+fn parse_ok(tokens: Vec<Token>) -> Option<Verse> {
     parse(map_metadata(tokens)).unwrap()
 }
 
@@ -39,7 +39,13 @@ fn flat_sequence_of_tokens() {
             Raw(Symbol(Ascii(b'?')), Metadata::bounds(1, 9, 1, 10)),
             Raw(ExtendedSymbol(AsciiSlice(&[b':', b':'])), Metadata::bounds(1, 11, 1, 12)),
         ], Metadata::bounds(1, 7, 1, 12))
-    ], verse);
+    ], verse.unwrap());
+}
+
+#[test]
+fn empty_verse_err() {
+    let verse = parse_ok(vec![Newline]);
+    assert!(verse.is_none());
 }
 
 #[test]
@@ -61,7 +67,7 @@ fn brace_list_empty() {
         Phrase::new(vec![
             List(vec![], Metadata::bounds(1, 1, 1, 4)),
         ], Metadata::bounds(1, 1, 1, 4))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -77,7 +83,7 @@ fn brace_list_nested_empty() {
                 ]
             ], Metadata::bounds(1, 1, 1, 8)),
         ], Metadata::bounds(1, 1, 1, 8))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -93,7 +99,7 @@ fn brace_list_around_paren_list() {
                 ]
             ], Metadata::bounds(1, 1, 1, 8)),
         ], Metadata::bounds(1, 1, 1, 8))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -111,7 +117,7 @@ fn brace_list_flat() {
             ], Metadata::bounds(1, 1, 1, 10)),
             Raw(Integer(42), Metadata::bounds(1, 11, 1, 12)),
         ], Metadata::bounds(1, 1, 1, 12)),
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -137,7 +143,7 @@ fn brace_list_nested() {
                 ]
             ], Metadata::bounds(1, 1, 1, 14)),
         ], Metadata::bounds(1, 1, 1, 14))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -159,7 +165,7 @@ fn paren_list_empty() {
         Phrase::new(vec![
             List(vec![], Metadata::bounds(1, 1, 1, 4)),
         ], Metadata::bounds(1, 1, 1, 4))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -173,7 +179,7 @@ fn paren_list_nested_empty() {
                 ]
             ], Metadata::bounds(1, 1, 1, 8)),
         ], Metadata::bounds(1, 1, 1, 8))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -187,7 +193,7 @@ fn paren_list_around_brace_list() {
                 ]
             ], Metadata::bounds(1, 1, 1, 8)),
         ], Metadata::bounds(1, 1, 1, 8))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -203,7 +209,7 @@ fn paren_list_with_one_verse_and_phrase_with_one_node() {
                 ]
             ], Metadata::bounds(1, 1, 1, 6)),
         ], Metadata::bounds(1, 1, 1, 6))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -217,7 +223,7 @@ fn paren_list_with_one_verse_trailing_comma() {
                 ]
             ], Metadata::bounds(1, 1, 1, 8)),
         ], Metadata::bounds(1, 1, 1, 8))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -231,7 +237,7 @@ fn paren_list_with_one_verse_and_phrase_with_many_nodes() {
                 ]
             ], Metadata::bounds(1, 1, 1, 8)),
         ], Metadata::bounds(1, 1, 1, 8))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -248,7 +254,7 @@ fn paren_list_with_many_verses() {
                 ]
             ], Metadata::bounds(1, 1, 1, 12)),
         ], Metadata::bounds(1, 1, 1, 12))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -280,7 +286,7 @@ fn relation_single() {
                 Metadata::bounds(1, 1, 1, 6)
             ),
         ], Metadata::bounds(1, 1, 1, 6))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -294,7 +300,7 @@ fn relation_single_long_tail() {
                 Metadata::bounds(1, 1, 1, 8)
             ),
         ], Metadata::bounds(1, 1, 1, 8)),
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -313,7 +319,7 @@ fn relation_multiple() {
                 Metadata::bounds(1, 1, 1, 12)
             ),
         ], Metadata::bounds(1, 1, 1, 12)),
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -338,7 +344,7 @@ fn relation_with_list_tail() {
                 Metadata::bounds(1, 1, 1, 14)
             ),
         ], Metadata::bounds(1, 1, 1, 14)),
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -364,7 +370,7 @@ fn relation_inside_brace_list() {
                 ]
             ], Metadata::bounds(1, 1, 1, 16))
         ], Metadata::bounds(1, 1, 1, 16))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -390,7 +396,7 @@ fn relation_inside_list() {
                 ]
             ], Metadata::bounds(1, 1, 1, 16))
         ], Metadata::bounds(1, 1, 1, 16))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -425,7 +431,7 @@ fn negative_integer() {
             Raw(Symbol(Ascii(b'-')), Metadata::bounds(1, 1, 1, 2)), 
             Raw(Integer(1), Metadata::bounds(1, 3, 1, 4)), 
         ], Metadata::bounds(1, 1, 1, 4))
-    ], verse);
+    ], verse.unwrap());
 }
 
 #[test]
@@ -436,5 +442,5 @@ fn negative_decimal() {
             Raw(Symbol(Ascii(b'-')), Metadata::bounds(1, 1, 1, 2)), 
             Raw(Decimal(token::Decimal(10, 5, 2)), Metadata::bounds(1, 3, 1, 4)), 
         ], Metadata::bounds(1, 1, 1, 4))
-    ], verse);
+    ], verse.unwrap());
 }

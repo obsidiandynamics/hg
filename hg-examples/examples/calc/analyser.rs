@@ -59,8 +59,8 @@ pub fn analyse(verse: Verse) -> Result<Expression, Error> {
     Ok(root)
 }
 
-fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(into_iter: I) -> Result<impl Iterator<Item = Node<'a>>, Error> {
-    let mut verses = into_iter.into_iter();
+fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(verses: I) -> Result<impl Iterator<Item = Node<'a>>, Error> {
+    let mut verses = verses.into_iter();
     match verses.next() {
         None => {
             Ok(vec![].into_iter())
@@ -69,19 +69,13 @@ fn flatten<'a, I: IntoIterator<Item = Verse<'a>>>(into_iter: I) -> Result<impl I
             match verses.next() {
                 None => {
                     let mut phrases = first_verse.into_phrases().into_iter();
+                    let first_phrase = phrases.next().unwrap();
                     match phrases.next() {
-                        Some(first_phrase) => {
-                            match phrases.next() {
-                                None => {
-                                    Ok(first_phrase.into_nodes().into_iter())
-                                }
-                                Some(_) => {
-                                    Err(Error::MultiplePhrases)
-                                }
-                            }
-                        }
                         None => {
-                            Ok(vec![].into_iter())
+                            Ok(first_phrase.into_nodes().into_iter())
+                        }
+                        Some(_) => {
+                            Err(Error::MultiplePhrases)
                         }
                     }
                 }

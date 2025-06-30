@@ -18,7 +18,7 @@ fn without_metadata(tokens: Vec<Token>) -> Map<IntoIter<Token>, fn(Token) -> Res
     tokens.into_iter().map(|token| Ok((token, Metadata::unspecified())))
 }
 
-fn parse_ok(tokens: Vec<Token>) -> Verse {
+fn parse_ok(tokens: Vec<Token>) -> Option<Verse> {
     parse(without_metadata(tokens)).unwrap()
 }
 
@@ -164,5 +164,5 @@ fn multilevel_json() {
                     )
                 )
             )
-    ), verse);
+    ), verse.unwrap());
 }

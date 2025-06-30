@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>>{
     let str = "-1 * 2 + 4 + 3 * 2 + -5";
     let tok = Tokeniser::new(str, SymbolTable::default());
     let root = parse(tok)?;
-    let expr = analyse(root)?;
+    let expr = analyse(root.unwrap())?;
     let eval = expr.eval();
     println!(">> {str}");
     println!("<< {eval}");

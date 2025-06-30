@@ -66,7 +66,11 @@ fn flatten_one_verse_one_phrase() {
 
 #[test]
 fn flatten_two_verses_err() {
-    let verses = vec![verse![], verse![]];
+    let verses = vec![verse![
+        phrase![Node::Raw(Symbol(Ascii(b'-')), Metadata::unspecified())]
+    ], verse![
+        phrase![Node::Raw(Symbol(Ascii(b'-')), Metadata::unspecified())]
+    ]];
     assert_eq!("unexpected comma separator", flatten(verses).map(|_|()).unwrap_err().to_string());
 }
 
@@ -77,12 +81,6 @@ fn flatten_two_phrases_err() {
         phrase![Node::Raw(Symbol(Ascii(b'-')), Metadata::unspecified())]
     ];
     assert_eq!("unexpected line separator", flatten([verse]).map(|_|()).unwrap_err().to_string());
-}
-
-#[test]
-fn flatten_no_verses() {
-    let verse = verse![];
-    assert_eq!(vec![] as Vec<Node<'_>>, flatten([verse]).unwrap().collect::<Vec<_>>());
 }
 
 fn fold_mult_ok<I: IntoIterator<Item = Element>>(elements: I) -> Vec<Element> {
@@ -218,7 +216,7 @@ fn fold_mult_stray_mid_operator_err() {
 
 fn evaluate(str: &'static str) -> Result<f64, Box<dyn std::error::Error>> {
     let tok = Tokeniser::new(str, SymbolTable::default());
-    let root = parse(tok)?;
+    let root = parse(tok)?.ok_or("no expression")?;
     let expr = analyse(root)?;
     Ok(expr.eval())
 }

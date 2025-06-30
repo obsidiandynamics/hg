@@ -40,7 +40,7 @@ pub enum Error<'a> {
 }
 
 #[inline]
-pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Verse<'a>, Error<'a>> {
+pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Option<Verse<'a>>, Error<'a>> {
     let mut fragments = FragmentStream::from(into_iter.into_iter());
     let mut verse = vec![];
     let mut phrase = vec![];
@@ -74,7 +74,11 @@ pub fn parse<'a, I: IntoIterator<Item=Fragment<'a>>>(into_iter: I) -> Result<Ver
     }
 
     if phrase.is_empty() {
-        Ok(Verse::new(verse))
+        if verse.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(Verse::new(verse)))
+        }
     } else {
         Err(Error::UnterminatedPhrase)
     }
